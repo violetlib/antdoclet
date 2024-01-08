@@ -1,4 +1,12 @@
-/**
+/*
+ * Copyright (c) 2024 Alan Snyder.
+ * All rights reserved.
+ *
+ * You may not use, copy or modify this file, except in compliance with the license agreement. For details see
+ * accompanying license terms.
+ */
+
+/*
   Copyright (c) 2003-2005 Fernando Dobladez
 
   This file is part of AntDoclet.
@@ -20,11 +28,19 @@
 
 package com.neuroning.antdoclet;
 
-import com.sun.javadoc.DocErrorReporter;
-import com.sun.javadoc.RootDoc;
+import jdk.javadoc.doclet.Doclet;
+import jdk.javadoc.doclet.DocletEnvironment;
+import jdk.javadoc.doclet.Reporter;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import javax.lang.model.SourceVersion;
 import java.io.File;
 import java.io.OutputStreamWriter;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /**
   AntDoclet Main class
@@ -35,39 +51,29 @@ import java.io.OutputStreamWriter;
 
   @author Fernando Dobladez <dobladez@gmail.com>
 */
-@SuppressWarnings("removal, deprecation")
+
 public class AntDoclet
-  extends com.sun.javadoc.Doclet
+  implements Doclet
 {
+    private @Nullable Reporter reporter;
+
+    private @Nullable String docTitle = "Ant Tasks";
+    private @Nullable String[] templates;
+    private @NotNull String templatesDir = ".";
+    private @NotNull String[] outputDirs = new String[] { "." };
+
+    public AntDoclet()
+    {
+    }
 
     /**
-      * Processes the JavaDoc documentation.
-      *
-      * @param root The root of the documentation tree.
-     * @return True if processing was successful.
+      Processes the JavaDoc documentation.
+
+      @param env The root of the documentation tree.
+      @return True if processing was successful.
     */
-    public static boolean start(RootDoc root)
+    public boolean start(@NotNull DocletEnvironment env)
     {
-        // Get some options
-        String title = "My Ant Tasks";
-        String[] templates = null;
-        String templatesDir = ".";
-        String[] outputdirs = new String[] { "."};
-
-        String[][] options = root.options();
-        for (String[] option : options) {
-            if (option[0].equalsIgnoreCase("-doctitle")) {
-                title = option[1];
-            } else if (option[0].equalsIgnoreCase("-templates")) {
-                templates = option[1].split(","); // comma-separated
-                // filenames
-            } else if (option[0].equalsIgnoreCase("-templatesdir")) {
-                templatesDir = option[1]; // comma-separated filenames
-            } else if (option[0].equalsIgnoreCase("-d")) {
-                outputdirs = option[1].split(",");
-            }
-        }
-
         // Init Velocity-template Generator
         VelocityFacade velocity = null;
         try {
@@ -77,16 +83,18 @@ public class AntDoclet
             return false;
         }
 
+        assert reporter != null;
+
         // Set global parameters to the templates
         velocity.setAttribute("velocity", velocity);
-        velocity.setAttribute("title", title);
-        velocity.setAttribute("antroot", new AntRoot(root));
+        velocity.setAttribute("title", docTitle);
+        velocity.setAttribute("antroot", new AntRoot(env, reporter));
 
         if (templates != null) {
             for (int i = 0; i < templates.length; i++) {
                 try {
-                    if (outputdirs.length > i) {
-                        velocity.setOutputDir(new File(outputdirs[i]));
+                    if (outputDirs.length > i) {
+                        velocity.setOutputDir(new File(outputDirs[i]));
                     }
                     velocity.eval(templates[i], new OutputStreamWriter(System.out));
                 } catch (Exception e) {
@@ -98,40 +106,143 @@ public class AntDoclet
         return true;
     }
 
-    /**
-      A JavaDoc option parsing handler. This one returns the number of arguments required for the given option.
-
-      @param option The name of the option.
-      @return The number of arguments.
-    */
-    public static int optionLength(String option)
+    private abstract class MyOption
+      implements Option
     {
-        // Check for the output option and then return that it requires two arguments, itself and the file name.
+        private final String name;
+        private final int argCount;
 
-        if (option.equalsIgnoreCase("-output"))
-            return 2;
-        else if (option.equalsIgnoreCase("-doctitle"))
-            return 2;
-        else if (option.equalsIgnoreCase("-templates"))
-            return 2;
-        else if (option.equalsIgnoreCase("-templatesdir"))
-            return 2;
-        else if (option.equalsIgnoreCase("-d"))
-            return 2;
+        protected MyOption(String name, int argCount)
+        {
+            this.name = name;
+            this.argCount = argCount;
+        }
 
-        return 0;
+        @Override
+        public String getDescription()
+        {
+            return name;
+        }
+
+        @Override
+        public Kind getKind()
+        {
+            return Kind.STANDARD;
+        }
+
+        @Override
+        public List<String> getNames()
+        {
+            return List.of(name);
+        }
+
+        @Override
+        public String getParameters()
+        {
+            return "";
+        }
+
+        @Override
+        public String toString()
+        {
+            return name;
+        }
+
+        @Override
+        public int getArgumentCount()
+        {
+            return argCount;
+        }
     }
 
-    /**
-      A JavaDoc option parsing handler. This one checks the validity of the options.
-
-      @param options The two dimensional array of options.
-      @param reporter  The error reporter.
-      @return True if the options are valid.
-    */
-    public static boolean validOptions(String[][] options, DocErrorReporter reporter)
+    private @NotNull Option createOutputOption()
     {
-        // TODO: do some actual validation of the arguments :)
-        return true;
+        return new MyOption("-output", 1) {
+            @Override
+            public boolean process(String opt, List<String> args) {
+                outputDirs = args.get(0).split(",");
+                return true;
+            }
+        };
+    }
+
+    private @NotNull Option createOutputDirectoryOption()
+    {
+        return new MyOption("-d", 1) {
+            @Override
+            public boolean process(String opt, List<String> args) {
+                outputDirs = args.get(0).split(",");
+                return true;
+            }
+        };
+    }
+
+    private @NotNull Option createDocTitleOption()
+    {
+        return new MyOption("-doctitle", 1) {
+            @Override
+            public boolean process(String opt, List<String> args) {
+                docTitle = args.get(0);
+                return true;
+            }
+        };
+    }
+
+    private @NotNull Option createTemplatesOption()
+    {
+        return new MyOption("-templates", 1) {
+            @Override
+            public boolean process(String opt, List<String> args) {
+                templates = args.get(0).split(","); // comma-separated
+                return true;
+            }
+        };
+    }
+
+    private @NotNull Option createTemplatesDirOption()
+    {
+        return new MyOption("-templatesdir", 1) {
+            @Override
+            public boolean process(String opt, List<String> args) {
+                templatesDir = args.get(0); // comma-separated filenames
+                return true;
+            }
+        };
+    }
+
+    @Override
+    public void init(Locale locale, Reporter reporter)
+    {
+        this.reporter = reporter;
+    }
+
+    @Override
+    public @NotNull String getName()
+    {
+        return "AndDoclet";
+    }
+
+    @Override
+    public @NotNull Set<? extends Option> getSupportedOptions()
+    {
+        Set<Option> options = new HashSet<>();
+        options.add(createOutputOption());
+        //options.add(createOutputDirectoryOption());
+        options.add(createDocTitleOption());
+        options.add(createTemplatesOption());
+        options.add(createTemplatesDirOption());
+        return options;
+    }
+
+    @Override
+    public @NotNull SourceVersion getSupportedSourceVersion()
+    {
+        return SourceVersion.RELEASE_21;
+    }
+
+    @Override
+    public boolean run(@NotNull DocletEnvironment env)
+    {
+        return start(env);
     }
 }

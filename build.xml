@@ -19,7 +19,6 @@ Tasks.
 
 	<property name="dist.name" value="antdoclet-1.1" />
 
-
 	<!-- Compilation Classpath ===== -->
 	<path id="compile.classpath">
 		<fileset id="libs" dir="${lib.home}">
@@ -29,8 +28,6 @@ Tasks.
 			<include name="**/*.jar" />
 		</fileset>
 	</path>
-
-
 
 	<!-- ALL Target  ===== -->
 	<target name="all" depends="clean,srcdist,dist" description="Build from scratch and create distribution bundle" />
@@ -55,12 +52,10 @@ Tasks.
 		</delete>
 	</target>
 
-
-
 	<!-- Build Target ===== -->
 	<target name="build" description="Compile all Java code" depends="init">
 
-		<javac srcdir="${src.home}" release="11" destdir="${build.home}/classes" debug="true" deprecation="true" includeantruntime="true">
+		<javac srcdir="${src.home}" destdir="${build.home}/classes" debug="true" deprecation="true" includeantruntime="true">
 
 			<include name="**/*.java" />
 			<classpath refid="compile.classpath" />

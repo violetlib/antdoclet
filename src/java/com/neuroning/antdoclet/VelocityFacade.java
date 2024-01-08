@@ -1,4 +1,12 @@
-/**
+/*
+ * Copyright (c) 2024 Alan Snyder.
+ * All rights reserved.
+ *
+ * You may not use, copy or modify this file, except in compliance with the license agreement. For details see
+ * accompanying license terms.
+ */
+
+/*
   Copyright (c) 2003-2005 Fernando Dobladez
 
   This file is part of AntDoclet.
@@ -25,6 +33,8 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.context.Context;
 import org.apache.velocity.exception.MethodInvocationException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -36,6 +46,7 @@ import java.io.Writer;
 
   @author Fernando Dobladez <dobladez@gmail.com>
 */
+
 public class VelocityFacade
 {
     private VelocityEngine velocity;
@@ -45,7 +56,8 @@ public class VelocityFacade
     /**
       @param outputDir directory for output
     */
-    public VelocityFacade(File outputDir, String templatesDir)
+
+    public VelocityFacade(@NotNull File outputDir, @NotNull String templatesDir)
       throws Exception
     {
         initVelocityEngine(templatesDir);
@@ -56,21 +68,22 @@ public class VelocityFacade
     /**
       Create and initialize a VelocityEngine
     */
-    private void initVelocityEngine(String templatesDir)
+
+    private void initVelocityEngine(@NotNull String templatesDir)
       throws Exception
     {
         velocity = new VelocityEngine();
         velocity.setProperty("resource.loader", "file, class");
-        velocity.setProperty( "file.resource.loader.path", templatesDir != null ? ".,"+templatesDir : "."); // default "file" loader
+        velocity.setProperty("file.resource.loader.path", templatesDir); // default "file" loader
         velocity.init();
     }
 
-    public File getOutputDir()
+    public @NotNull File getOutputDir()
     {
         return outputDir;
     }
 
-    public void setOutputDir(File outdir)
+    public void setOutputDir(@NotNull File outdir)
     {
         this.outputDir = outdir;
     }
@@ -78,18 +91,20 @@ public class VelocityFacade
     /**
       Get a Writer to the specified file
     */
-    protected FileWriter getFileWriter(String fileName)
+
+    protected @NotNull FileWriter getFileWriter(@NotNull String fileName)
       throws IOException
     {
-        File file = new File( getOutputDir(), fileName );
+        File file = new File(getOutputDir(), fileName);
         file.getParentFile().mkdirs();
-        return new FileWriter( file );
+        return new FileWriter(file);
     }
 
     /**
       Get the evaluation-context used by this generator
     */
-    public Context getContext()
+
+    public @NotNull Context getContext()
     {
         return context;
     }
@@ -97,9 +112,10 @@ public class VelocityFacade
     /**
       Add something to the Generator's evaluation-context
     */
-    public void setAttribute(String key, Object value)
+
+    public void setAttribute(@NotNull String key, @Nullable Object value)
     {
-        context.put( key, value );
+        context.put(key, value);
     }
 
     /**
@@ -108,11 +124,12 @@ public class VelocityFacade
       @param writer output destination
       @param context merge context
     */
-    void merge(String templateName, Writer writer, Context context)
+
+    void merge(@NotNull String templateName, @NotNull Writer writer, @NotNull Context context)
     {
         try {
-            Template template = this.velocity.getTemplate( templateName );
-            template.merge( context, writer );
+            Template template = this.velocity.getTemplate(templateName);
+            template.merge(context, writer);
             writer.flush();
 
         } catch (MethodInvocationException e) {
@@ -121,12 +138,12 @@ public class VelocityFacade
             if (cause == null) {
                 cause = e;
             }
-            throw new RuntimeException( "Error invoking $" + e.getReferenceName() +
+            throw new RuntimeException("Error invoking $" + e.getReferenceName() +
               "." + e.getMethodName() + "() in \"" +
               templateName + "\"",
-              cause );
+              cause);
         } catch (Exception e) {
-            throw new RuntimeException( "Error parsing \"" + templateName + "\"", e);
+            throw new RuntimeException("Error parsing \"" + templateName + "\"", e);
         }
     }
 
@@ -135,10 +152,11 @@ public class VelocityFacade
       @param templateName name of the template
       @param writer output destination
     */
-    public void eval(String templateName, Writer writer)
+
+    public void eval(@NotNull String templateName, @NotNull Writer writer)
       throws IOException
     {
-        merge( templateName, writer, getContext() );
+        merge(templateName, writer, getContext());
     }
 
     /**
@@ -146,15 +164,16 @@ public class VelocityFacade
       @param templateName name of the template
       @param fileName name of output file
     */
-    public void eval(String templateName, String fileName)
+
+    public void eval(@NotNull String templateName, @NotNull String fileName)
       throws IOException
     {
         FileWriter writer = getFileWriter(fileName);
-        eval( templateName, writer );
+        eval(templateName, writer);
         writer.close();
     }
 
-    public Object create(String className)
+    public @NotNull Object create(@NotNull String className)
       throws Exception
     {
         return Class.forName(className).getDeclaredConstructor().newInstance();

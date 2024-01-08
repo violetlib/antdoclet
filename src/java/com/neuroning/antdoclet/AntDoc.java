@@ -1,4 +1,12 @@
-/**
+/*
+ * Copyright (c) 2024 Alan Snyder.
+ * All rights reserved.
+ *
+ * You may not use, copy or modify this file, except in compliance with the license agreement. For details see
+ * accompanying license terms.
+ */
+
+/*
   Copyright (c) 2003-2005 Fernando Dobladez
 
   This file is part of AntDoclet.
@@ -20,12 +28,21 @@
 
 package com.neuroning.antdoclet;
 
-import com.sun.javadoc.*;
+import jdk.javadoc.doclet.DocletEnvironment;
+import jdk.javadoc.doclet.Reporter;
 import org.apache.tools.ant.IntrospectionHelper;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.TaskContainer;
+import org.apache.tools.ant.types.DataType;
 import org.apache.tools.ant.types.EnumeratedAttribute;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import javax.lang.model.element.*;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
@@ -51,39 +68,33 @@ public class AntDoc implements Comparable
     /**
       Javadoc description for this type.
     */
-    private ClassDoc doc;
-
-    /**
-      Javadoc "root node"
-    */
-    private RootDoc rootdoc;
-
-    /**
-      The java Class for this type
-    */
-    private Class clazz;
+    private final @NotNull TypeElement thisType;
+    private final @NotNull DocletEnvironment env;
+    private final @NotNull Class<?> clazz;
+    private final @NotNull DocUtils docUtils;
+    private final @NotNull Reporter reporter;
+    private final @NotNull TypeInfo typeInfo;
 
     private static final List<String> antEntities = List.of("ant.task", "ant.type", "ant.prop", "ant.ref");
 
-    private AntDoc(IntrospectionHelper ih, RootDoc rootdoc, ClassDoc doc, Class clazz)
+    private AntDoc(@NotNull IntrospectionHelper ih,
+                   @NotNull DocletEnvironment env,
+                   @NotNull TypeElement thisType,
+                   @NotNull Class<?> clazz,
+                   @NotNull Reporter reporter)
     {
-        this.doc = doc;
-        this.rootdoc = rootdoc;
+        this.thisType = thisType;
+        this.env = env;
         this.introHelper = ih;
         this.clazz = clazz;
+        this.docUtils = DocUtils.create(env, reporter);
+        this.reporter = reporter;
+        this.typeInfo = Introspection.getInfo(thisType, docUtils);
     }
 
-    public static AntDoc getInstance(String clazz)
-    {
-        return getInstance(clazz, null);
-    }
-
-    public static AntDoc getInstance(Class<?> clazz)
-    {
-        return getInstance(clazz, null);
-    }
-
-    public static AntDoc getInstance(String clazz, RootDoc rootdoc)
+    public static @Nullable AntDoc getInstance(@NotNull String clazz,
+                                               @NotNull DocletEnvironment rootdoc,
+                                               @NotNull Reporter reporter)
     {
         Class<?> c = null;
 
@@ -109,30 +120,50 @@ public class AntDoc implements Comparable
             }
         }
 
-        return c != null ? getInstance(c, rootdoc) : null;
+        return c != null ? getInstance(c, rootdoc, reporter) : null;
     }
 
-    public static AntDoc getInstance(Class<?> clazz, RootDoc rootdoc)
+    public static @Nullable AntDoc getInstance(@NotNull Class<?> clazz,
+                                               @Nullable DocletEnvironment env,
+                                               @NotNull Reporter reporter)
     {
-        AntDoc d = null;
+        if (env == null) {
+            return null;
+        }
+
+        if (!Task.class.isAssignableFrom(clazz) && !DataType.class.isAssignableFrom(clazz)) {
+            return null;
+        }
+
         IntrospectionHelper ih = IntrospectionHelper.getHelper(clazz);
-        ClassDoc doc = null;
+        Elements es = env.getElementUtils();
+        TypeElement type = es.getTypeElement(clazz.getName());
 
-        if (rootdoc != null) {
-            doc = rootdoc.classNamed(clazz.getName());
+        if (type != null && !shouldIgnore(type, env, reporter)) {
+            return new AntDoc(ih, env, type, clazz, reporter);
         }
 
-        if (!shouldIgnore(doc)) {
-            d = new AntDoc(ih, rootdoc, doc, clazz);
-        }
-
-        return d;
+        return null;
     }
 
-    private static boolean shouldIgnore(Doc doc)
+    private boolean shouldIgnore(TypeElement doc)
     {
         for (String e : antEntities) {
-            String s = Util.tagAttributeValue(doc, e, "ignore");
+            String s = docUtils.tagAttributeValue(doc, e, "ignore");
+            if ("true".equalsIgnoreCase(s)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean shouldIgnore(@NotNull TypeElement doc,
+                                        @NotNull DocletEnvironment env,
+                                        @NotNull Reporter reporter)
+    {
+        DocUtils utils = DocUtils.create(env, reporter);
+        for (String e : antEntities) {
+            String s = utils.tagAttributeValue(doc, e, "ignore");
             if ("true".equalsIgnoreCase(s)) {
                 return true;
             }
@@ -141,16 +172,27 @@ public class AntDoc implements Comparable
     }
 
     /**
-      @return Whether this represents an Ant Task (otherwise, it is assumed as a Type)
+      @return Whether this type represents an Ant Task
     */
+
     public boolean isTask()
     {
         return Task.class.isAssignableFrom(this.clazz);
     }
 
     /**
+      @return Whether this type represents an Ant DataType
+    */
+
+    public boolean isType()
+    {
+        return DataType.class.isAssignableFrom(this.clazz);
+    }
+
+    /**
       @return Is this an Ant Task Container?
     */
+
     public boolean isTaskContainer()
     {
         return TaskContainer.class.isAssignableFrom(this.clazz);
@@ -159,41 +201,38 @@ public class AntDoc implements Comparable
     /**
       @return Should this entity be excluded?
     */
+
     public boolean isIgnored()
     {
-        return shouldIgnore(doc);
+        return shouldIgnore(thisType);
     }
 
     /**
       @return Is the source code for this type included in this javadoc run?
     */
+
     public boolean sourceIncluded()
     {
-        return doc != null && doc.isIncluded();
+        Set<? extends Element> included = env.getIncludedElements();
+        return thisType != null && included.contains(thisType);
     }
 
     /**
       @return The source comment (description) for this class (task/type)
     */
+
     public String getComment()
     {
-        return Util.getProcessedText(doc);
+        return docUtils.getComment(thisType);
     }
 
     /**
       @return Short comment for this class (basically, the first sentence)
     */
+
     public String getShortComment()
     {
-        if (doc == null) {
-            return null;
-        }
-
-        Tag[] firstTags = doc.firstSentenceTags();
-        if (firstTags.length > 0 && firstTags[0] != null) {
-            return firstTags[0].text();
-        }
-        return null;
+        return docUtils.getShortComment(thisType);
     }
 
     /**
@@ -202,6 +241,7 @@ public class AntDoc implements Comparable
       @return Collection of Ant attributes, excluding those inherited from
       org.apache.tools.ant.Task, or null if there are none
     */
+
     public Collection<String> getAttributes()
     {
         ArrayList<String> attrs = Collections.list(introHelper.getAttributes());
@@ -231,16 +271,16 @@ public class AntDoc implements Comparable
     private Collection<String> sortAttributes(List<String> names)
     {
         names.sort((o1, o2) -> {
-            int pos1 = getAttributeSourceLine(o1);
-            int pos2 = getAttributeSourceLine(o2);
-            return pos1 - pos2;
+            long pos1 = getAttributeSourceLine(o1);
+            long pos2 = getAttributeSourceLine(o2);
+            return (int) (pos1 - pos2);
         });
         return names;
     }
 
-    private int getAttributeSourceLine(String name)
+    private long getAttributeSourceLine(String name)
     {
-        MethodDoc method = getMethodFor(this.doc, name);
+        ExecutableElement method = getMethodFor(this.thisType, name);
         if (method == null) {
             return 0;
         }
@@ -249,43 +289,45 @@ public class AntDoc implements Comparable
 
     public List<String> getProperties()
     {
-        List<FieldDoc> l = getPropertyFieldsSorted();
+        List<VariableElement> l = getPropertyFieldsSorted();
         List<String> ss = new ArrayList<>();
-        for (FieldDoc f : l) {
-            ss.add(f.name());
-            System.err.println("Property: " + f.name());
+        for (VariableElement f : l) {
+            ss.add(f.getSimpleName().toString());
         }
         return ss;
     }
 
-    public FieldDoc getPropertyField(String fieldName)
+    public VariableElement getPropertyField(String fieldName)
     {
-        List<FieldDoc> fields = getPropertyFields();
-        for (FieldDoc field : fields) {
-            if (field.name().equals(fieldName)) {
+        List<VariableElement> fields = getPropertyFields();
+        for (VariableElement field : fields) {
+            if (field.getSimpleName().toString().equals(fieldName)) {
                 return field;
             }
         }
         return null;
     }
 
-    public List<FieldDoc> getPropertyFieldsSorted()
+    public List<VariableElement> getPropertyFieldsSorted()
     {
-        List<FieldDoc> l = getPropertyFields();
+        List<VariableElement> l = getPropertyFields();
         l.sort((o1, o2) -> {
-            int pos1 = getSourceLine(o1);
-            int pos2 = getSourceLine(o2);
-            return pos1 - pos2;
+            long pos1 = getSourceLine(o1);
+            long pos2 = getSourceLine(o2);
+            return (int) (pos1 - pos2);
         });
         return l;
     }
 
-    public List<FieldDoc> getPropertyFields()
+    public List<VariableElement> getPropertyFields()
     {
-        List<FieldDoc> l = new ArrayList<>();
-        FieldDoc[] fields = doc.fields();
-        for (FieldDoc field : fields) {
-            if (field.isPublic() && field.isStatic() && field.isFinal() && isProperty(field)) {
+        List<VariableElement> l = new ArrayList<>();
+        List<VariableElement> fields = getFields(thisType);
+        for (VariableElement field : fields) {
+            Set<Modifier> mods = field.getModifiers();
+            if (mods.contains(Modifier.PUBLIC)
+              && mods.contains(Modifier.STATIC)
+              && mods.contains(Modifier.FINAL) && isProperty(field)) {
                 l.add(field);
             }
         }
@@ -294,87 +336,96 @@ public class AntDoc implements Comparable
 
     public List<String> getReferences()
     {
-        List<FieldDoc> l = getReferenceFieldsSorted();
+        List<VariableElement> l = getReferenceFieldsSorted();
         List<String> ss = new ArrayList<>();
-        for (FieldDoc f : l) {
-            ss.add(f.name());
-            System.err.println("Reference: " + f.name());
+        for (VariableElement f : l) {
+            ss.add(f.getSimpleName().toString());
         }
         return ss;
     }
 
-    public FieldDoc getReferenceField(String fieldName)
+    public VariableElement getReferenceField(String fieldName)
     {
-        List<FieldDoc> fields = getReferenceFields();
-        for (FieldDoc field : fields) {
-            if (field.name().equals(fieldName)) {
+        List<VariableElement> fields = getReferenceFields();
+        for (VariableElement field : fields) {
+            if (field.getSimpleName().toString().equals(fieldName)) {
                 return field;
             }
         }
         return null;
     }
 
-    public List<FieldDoc> getReferenceFieldsSorted()
+    public List<VariableElement> getReferenceFieldsSorted()
     {
-        List<FieldDoc> l = getReferenceFields();
+        List<VariableElement> l = getReferenceFields();
         l.sort((o1, o2) -> {
-            int pos1 = getSourceLine(o1);
-            int pos2 = getSourceLine(o2);
-            return pos1 - pos2;
+            long pos1 = getSourceLine(o1);
+            long pos2 = getSourceLine(o2);
+            return (int) (pos1 - pos2);
         });
         return l;
     }
 
-    public List<FieldDoc> getReferenceFields()
+    public List<VariableElement> getReferenceFields()
     {
-        List<FieldDoc> l = new ArrayList<>();
-        FieldDoc[] fields = doc.fields();
-        for (FieldDoc field : fields) {
-            if (field.isPublic() && field.isStatic() && field.isFinal() && isReference(field)) {
+        List<VariableElement> l = new ArrayList<>();
+        List<VariableElement> fields = getFields(thisType);
+        for (VariableElement field : fields) {
+            Set<Modifier> mods = field.getModifiers();
+            if (mods.contains(Modifier.PUBLIC)
+              && mods.contains(Modifier.STATIC)
+              && mods.contains(Modifier.FINAL) && isReference(field)) {
                 l.add(field);
             }
         }
         return l;
     }
 
+    private static List<VariableElement> getFields(TypeElement t)
+    {
+        List<VariableElement> result = new ArrayList<>();
+        for (Element e : t.getEnclosedElements()) {
+            if (e instanceof VariableElement) {
+                result.add((VariableElement) e);
+            }
+        }
+        return result;
+    }
+
     /**
       @return a collection of the "Nested Elements" that this Ant tasks accepts, or null if there are none
     */
-    public Iterator<String> getNestedElements()
+
+    public @NotNull List<String> getNestedElements()
     {
+        List<String> c = new ArrayList<>();
+
         Enumeration<String> elements = introHelper.getNestedElements();
         if (elements.hasMoreElements()) {
-            List<String> c = new ArrayList<>();
             while (elements.hasMoreElements()) {
                 c.add(elements.nextElement());
             }
             c.sort((o1, o2) -> {
-                int pos1 = getNestedElementSourceLine(o1);
-                int pos2 = getNestedElementSourceLine(o2);
-                return pos1 - pos2;
+                long pos1 = getNestedElementSourceLine(o1);
+                long pos2 = getNestedElementSourceLine(o2);
+                return (int) (pos1 - pos2);
             });
-            return c.iterator();
-        } else {
-            return null;
         }
+        return c;
     }
 
-    private int getNestedElementSourceLine(String name)
+    private long getNestedElementSourceLine(String name)
     {
-        MethodDoc method = getMethodForType(this.doc, name);
+        ExecutableElement method = getMethodForType(this.thisType, name);
         if (method == null) {
             return 0;
         }
         return getSourceLine(method);
     }
 
-    private int getSourceLine(Doc doc)
+    private long getSourceLine(@NotNull Element e)
     {
-        com.sun.javadoc.SourcePosition pos = doc.position();
-        if (pos == null) {
-            return 0;
-        }
-        return pos.line();
+        return docUtils.getLineNumber(e);
     }
 
     /**
@@ -383,13 +434,14 @@ public class AntDoc implements Comparable
       You can pass these strings to getImplementingClasses() to finds the available implementations. return The fully
       qualified class names, or null if there are none
     */
-    public Iterator<String> getNestedTypes()
+
+    public @NotNull Iterator<String> getNestedTypes()
     {
         List<Method> mm = introHelper.getExtensionPoints();
         if (mm.isEmpty()) {
             return null;
         } else {
-            Collection c = new HashSet<String>();
+            Collection<String> c = new HashSet<>();
             for (Method m : mm) {
                 String classname = m.getParameterTypes()[0].getName();
                 c.add(classname);
@@ -402,13 +454,21 @@ public class AntDoc implements Comparable
       Find all subclasses of the given abstract class or interface.
       Does NOT match the class itself.
     */
-    public Iterator<String> getImplementingClasses(String className)
+
+    public @NotNull Iterator<String> getImplementingClasses(@NotNull String className)
     {
         List<String> imps = new ArrayList<String>();
-        ClassDoc thisClass = rootdoc.classNamed(className);
-        for (ClassDoc cd : rootdoc.classes()) {
-            if (cd.subclassOf(thisClass) && !cd.qualifiedName().equals(className)) {
-                imps.add(cd.qualifiedName());
+        Elements es = env.getElementUtils();
+        TypeElement thisClass = es.getTypeElement(className);
+        TypeMirror t = thisClass.asType();
+        for (Element e : env.getIncludedElements()) {
+            if (e instanceof TypeElement) {
+                TypeElement te = (TypeElement) e;
+                TypeMirror tm = te.asType();
+                Types types = env.getTypeUtils();
+                if (types.isSubtype(tm, t)) {
+                    imps.add(te.getQualifiedName().toString());
+                }
             }
         }
         return imps.iterator();
@@ -420,9 +480,10 @@ public class AntDoc implements Comparable
       @param className
       @return null if the class cannot be found on the classpath.
     */
-    public AntDoc getTypeDoc(String className)
+
+    public @Nullable AntDoc getTypeDoc(String className)
     {
-        return getInstance(className, rootdoc);
+        return getInstance(className, env, reporter);
     }
 
     /**
@@ -433,11 +494,11 @@ public class AntDoc implements Comparable
     public String getCommentForType(String type)
     {
         notNull(type, "type");
-        MethodDoc m = getMethodForType(doc, type);
-        return m==null ? null : m.commentText();
+        ExecutableElement m = getMethodForType(thisType, type);
+        return m == null ? null : env.getElementUtils().getDocComment(m);
     }
 
-    public String getFullClassName()
+    public @NotNull String getFullClassName()
     {
         return clazz.getName();
     }
@@ -445,9 +506,15 @@ public class AntDoc implements Comparable
     /**
       @return true if this refers to an inner-class
     */
+
     public boolean isInnerClass()
     {
-        return doc != null && (doc.containingClass() != null);
+        if (thisType == null) {
+            return false;
+        }
+        Elements es = env.getElementUtils();
+        Element outer = es.getOutermostTypeElement(thisType);
+        return outer != thisType;
     }
 
     /**
@@ -455,13 +522,13 @@ public class AntDoc implements Comparable
       @param attribute
       @return A comment. A null String if this attribute is not declared as required.
     */
-    public String getAttributeRequired(String attribute)
+    public @Nullable String getAttributeRequired(@NotNull String attribute)
     {
-        MethodDoc method = getMethodFor(this.doc, attribute);
+        ExecutableElement method = getMethodFor(this.thisType, attribute);
         if (method == null) {
             return null;
         }
-        return Util.getProcessedText(method, "ant.required");
+        return docUtils.tagValue(method, "ant.required");
     }
 
     /**
@@ -469,20 +536,21 @@ public class AntDoc implements Comparable
       @param attribute
       @return A comment. A null String if this attribute is not declared as non-required.
     */
-    public String getAttributeNotRequired(String attribute)
+
+    public @Nullable String getAttributeNotRequired(@NotNull String attribute)
     {
-        MethodDoc method = getMethodFor(this.doc, attribute);
+        ExecutableElement method = getMethodFor(this.thisType, attribute);
         if (method == null) {
             return null;
         }
-        return Util.getProcessedText(method, "ant.not-required");
+        return docUtils.tagValue(method, "ant.not-required");
     }
 
-    public String getPropertyName(String fieldName)
+    public @NotNull String getPropertyName(@NotNull String fieldName)
     {
-        FieldDoc field = getPropertyField(fieldName);
+        VariableElement field = getPropertyField(fieldName);
         if (field != null) {
-            String name = Util.tagAttributeValue(field, "ant.prop", "name");
+            String name = docUtils.tagAttributeValue(field, "ant.prop", "name");
             if (name != null) {
                 return name;
             }
@@ -490,11 +558,11 @@ public class AntDoc implements Comparable
         return "";
     }
 
-    public String getPropertyDescription(String fieldName)
+    public @NotNull String getPropertyDescription(@NotNull String fieldName)
     {
-        FieldDoc field = getPropertyField(fieldName);
+        VariableElement field = getPropertyField(fieldName);
         if (field != null) {
-            String d = Util.getProcessedText(field);
+            String d = docUtils.getComment(field);
             if (d != null) {
                 return d;
             }
@@ -502,20 +570,23 @@ public class AntDoc implements Comparable
         return "";
     }
 
-    public String getPropertyType(String fieldName)
+    public @NotNull String getPropertyType(@NotNull String fieldName)
     {
-        FieldDoc field = getPropertyField(fieldName);
+        VariableElement field = getPropertyField(fieldName);
         if (field != null) {
-            // type needs to be a tag attribute, defaults to String
+            String type = docUtils.tagAttributeValue(field, "ant.prop", "type");
+            if (type != null) {
+                return type;
+            }
         }
-        return "";
+        return "String";
     }
 
-    public String getReferenceName(String fieldName)
+    public @NotNull String getReferenceName(@NotNull String fieldName)
     {
-        FieldDoc field = getReferenceField(fieldName);
+        VariableElement field = getReferenceField(fieldName);
         if (field != null) {
-            String name = Util.tagAttributeValue(field, "ant.ref", "name");
+            String name = docUtils.tagAttributeValue(field, "ant.ref", "name");
             if (name != null) {
                 return name;
             }
@@ -523,11 +594,11 @@ public class AntDoc implements Comparable
         return "";
     }
 
-    public String getReferenceDescription(String fieldName)
+    public @NotNull String getReferenceDescription(@NotNull String fieldName)
     {
-        FieldDoc field = getReferenceField(fieldName);
+        VariableElement field = getReferenceField(fieldName);
         if (field != null) {
-            String d = Util.getProcessedText(field);
+            String d = docUtils.getComment(field);
             if (d != null) {
                 return d;
             }
@@ -535,16 +606,19 @@ public class AntDoc implements Comparable
         return "";
     }
 
-    public String getReferenceType(String fieldName)
+    public @NotNull String getReferenceType(@NotNull String fieldName)
     {
-        FieldDoc field = getReferenceField(fieldName);
+        VariableElement field = getReferenceField(fieldName);
         if (field != null) {
-            // type needs to be a tag attribute, defaults to String
+            String type = docUtils.tagAttributeValue(field, "ant.ref", "type");
+            if (type != null) {
+                return type;
+            }
         }
         return "";
     }
 
-    public String getAntCategoryPrefix()
+    public @NotNull String getAntCategoryPrefix()
     {
         String category = getAntCategory();
         if (category != null) {
@@ -558,27 +632,32 @@ public class AntDoc implements Comparable
 
       @return The value of the "category" attribute of the ant entity.
     */
-    public String getAntCategory()
+
+    public @Nullable String getAntCategory()
+    {
+        return getAntCategory(thisType);
+    }
+
+    public @Nullable String getAntCategory(@NotNull Element element)
     {
         for (String e : antEntities) {
-            String s = Util.tagAttributeValue(this.doc, e, "category");
+            String s = docUtils.tagAttributeValue(element, e, "category");
             if (s != null) {
                 return s;
             }
         }
-        if (getContainerDoc() != null)
-            return getContainerDoc().getAntCategory();
-
-        return null;
+        Element container = element.getEnclosingElement();
+        return container != null ? getAntCategory(container) : null;
     }
 
     /**
       @return true if the class has an ant tag in it
     */
+
     public boolean isTagged()
     {
         for (String e : antEntities) {
-            String s = Util.tagAttributeValue(this.doc, e, "name");
+            String s = docUtils.tagAttributeValue(this.thisType, e, "name");
             if (s != null) {
                 return true;
             }
@@ -587,15 +666,15 @@ public class AntDoc implements Comparable
         return false;
     }
 
-    public boolean isProperty(Doc doc)
+    public boolean isProperty(@NotNull Element e)
     {
-        String antName = Util.tagAttributeValue(doc, "ant.prop", "name");
+        String antName = docUtils.tagAttributeValue(e, "ant.prop", "name");
         return antName != null;
     }
 
-    public boolean isReference(Doc doc)
+    public boolean isReference(@NotNull Element e)
     {
-        String antName = Util.tagAttributeValue(doc, "ant.ref", "name");
+        String antName = docUtils.tagAttributeValue(e, "ant.ref", "name");
         return antName != null;
     }
 
@@ -605,24 +684,26 @@ public class AntDoc implements Comparable
       @return The value of name attribute of the ant tag, if it exists.
       Otherwise, the Java class name.
     */
-    public String getAntName()
+
+    public @NotNull String getAntName()
     {
-        for (String e : antEntities) {
-            String name = Util.tagAttributeValue(this.doc, e, "name");
+        return getAntName(thisType);
+    }
+
+    public @NotNull String getAntName(Element e)
+    {
+        for (String en : antEntities) {
+            String name = docUtils.tagAttributeValue(e, en, "name");
             if (name != null) {
                 return name;
             }
         }
 
-        // Handle inner class case
-        if (getContainerDoc() != null) {
-            String name = getContainerDoc().getAntName();
-            if (name != null) {
-                return name
-                  + "."
-                  + this.clazz.getName().substring(
-                  this.clazz.getName().lastIndexOf('$') + 1);
-            }
+        Element container = e.getEnclosingElement();
+        if (container instanceof DeclaredType) {
+            String en = getAntName(container);
+            return en + "." + this.clazz.getName().substring(
+              this.clazz.getName().lastIndexOf('$') + 1);
         }
 
         return typeToString(this.clazz);
@@ -633,7 +714,8 @@ public class AntDoc implements Comparable
       @param elementName
       @return The java type for the specified element accepted by this task
     */
-    public Class<?> getElementType(String elementName)
+
+    public Class<?> getElementType(@NotNull String elementName)
     {
         return introHelper.getElementType(elementName);
     }
@@ -641,44 +723,69 @@ public class AntDoc implements Comparable
     /**
       Return a new AntDoc for the given "element"
     */
-    public AntDoc getElementDoc(String elementName)
+
+    public AntDoc getElementDoc(@NotNull String elementName)
     {
-        return getInstance(getElementType(elementName), this.rootdoc);
+        Class<?> elementClass = getElementType(elementName);
+
+        System.err.println("Class of " + elementName + " is " + elementClass.getName());
+
+        return getInstance(elementClass, this.env, reporter);
     }
 
     /**
       Return a new AntDoc for the "container" of this type. Only makes sense for inner classes.
     */
-    public AntDoc getContainerDoc()
+
+    public @Nullable Element getContainerDoc()
     {
         if (!isInnerClass()) {
             return null;
         }
-        return getInstance(this.doc.containingClass().qualifiedName(), this.rootdoc);
+        return thisType.getEnclosingElement();
     }
 
     /**
-      Return the name of the type for the specified attribute
+      Return the display name for the specified attribute.
     */
-    public String getAttributeType(String attributeName)
+
+    public @NotNull String getAttributeName(@NotNull String attribute)
     {
-        return typeToString(introHelper.getAttributeType(attributeName));
+        ExecutableElement method = getMethodFor(this.thisType, attribute);
+        if (method != null) {
+            String name = docUtils.tagAttributeValue(method, "ant.prop", "name");
+            if (name != null) {
+                return name;
+            }
+        }
+        return attribute;
     }
 
     /**
-      Retrieves the method comment for the given attribute.
+      Return the name of the type for the specified attribute.
+    */
+
+    public @NotNull String getAttributeType(String attribute)
+    {
+        return typeToString(introHelper.getAttributeType(attribute));
+    }
+
+    /**
+      Retrieves the doc comment for the given attribute obtained from the getter or setter method.
       The comment of the setter is used preferably to the getter comment.
 
-      @param attribute
-      @return The comment for the specified attribute
+      @param attribute The attribute.
+      @return The comment for the specified attribute, or null if none.
     */
-    public String getAttributeComment(String attribute)
+
+    public @NotNull String getAttributeComment(@NotNull String attribute)
     {
-        MethodDoc method = getMethodFor(this.doc, attribute);
+        ExecutableElement method = getMethodFor(this.thisType, attribute);
         if (method == null) {
-            return new String();
+            return "";
         }
-        return method.commentText();
+        String comment = docUtils.getComment(method);
+        return comment != null ? comment : "";
     }
 
     /**
@@ -690,69 +797,98 @@ public class AntDoc implements Comparable
       @param attribute
       @return The MethodDoc for the given attribute or null if not found
     */
-    private static MethodDoc getMethodFor(ClassDoc classDoc, String attribute)
+
+    private @Nullable ExecutableElement getMethodFor(@Nullable TypeElement classDoc, @NotNull String attribute)
     {
         if (classDoc == null) {
             return null;
         }
-        MethodDoc result = null;
-        MethodDoc[] methods = classDoc.methods();
-        for (MethodDoc method : methods) {
 
-            // we give priority to the documentation on the "setter" method of the attribute but if the documentation
-            // is only on the "getter", use it we give priority to the documentation on the "setter" method of the
-            // attribute but if the documentation is only on the "getter", use it
-            if (method.name().equalsIgnoreCase("set" + attribute)) {
-                return method;
-            } else if (method.name().equalsIgnoreCase("get" + attribute)) {
-                result = method;
+        // we give priority to the documentation on the "setter" method of the attribute but if the documentation
+        // is only on the "getter", use it we give priority to the documentation on the "setter" method of the
+        // attribute but if the documentation is only on the "getter", use it.
+
+        Elements elements = env.getElementUtils();
+        List<? extends Element> members = elements.getAllMembers(classDoc);
+        for (Element m : members) {
+            if (m instanceof ExecutableElement) {
+                ExecutableElement e = (ExecutableElement) m;
+                String name = e.getSimpleName().toString();
+                if (name.equalsIgnoreCase("set" + attribute)) {
+                    return e;
+                } else if (name.equalsIgnoreCase("get" + attribute)) {
+                    return e;
+                }
             }
         }
-        if (result == null) {
-            return getMethodFor(classDoc.superclass(), attribute);
+        TypeMirror superclass = classDoc.getSuperclass();
+        if (superclass != null) {
+            Element superType = env.getTypeUtils().asElement(superclass);
+            if (superType instanceof TypeElement) {
+                return getMethodFor((TypeElement) superType, attribute);
+            }
         }
-        return result;
+        return null;
     }
 
     /**
-      Searches the given class for the appropriate setter or getter for the given attribute. This method only returns
-      the getter if no setter is available. If the given class provides no method declaration, the superclasses are
-      searched recursively.
+      Searches the given class for the appropriate create or add method for the given nested type. If the given class
+      provides no suitable method declaration, the superclasses are searched recursively.
 
       @param nestedType
       @return The MethodDoc for the given attribute or null if not found
     */
-    private static MethodDoc getMethodForType(ClassDoc classDoc, String nestedType)
+
+    private @Nullable ExecutableElement getMethodForType(@NotNull TypeElement classDoc, @NotNull String nestedType)
     {
         notNull(classDoc, "classDoc");
         notNull(nestedType, "nestedType");
 
-        String addName = "add" + toCapitalized(nestedType);
-        String addConfiguredName = "addConfigured" + toCapitalized(nestedType);
+        Elements elements = env.getElementUtils();
+        List<? extends Element> members = elements.getAllMembers(classDoc);
+        for (Element m : members) {
+            if (m instanceof ExecutableElement) {
+                ExecutableElement e = (ExecutableElement) m;
+                String name = e.getSimpleName().toString();
 
-        MethodDoc result = null;
-        MethodDoc[] methods = classDoc.methods();
-        for (MethodDoc method : methods) {
-            if (method.name().equalsIgnoreCase("add")||method.name().equalsIgnoreCase("addConfigured")) {
-                com.sun.javadoc.Parameter[] params = method.parameters();
-                if (params.length == 1) {
-                    // Ugly. I have the method, why can't Javadoc give me the comment directly?
-                    if (nestedType.endsWith(params[0].type().typeName())) {
-                        result = method;
-                        break;
+                if (name.equalsIgnoreCase("add") || name.equalsIgnoreCase("addConfigured")) {
+                    List<? extends VariableElement> parameters = e.getParameters();
+                    if (parameters.size() == 1) {
+                        VariableElement p = parameters.getFirst();
+                        TypeMirror pt = p.asType();
+                        if (pt instanceof DeclaredType) {
+                            DeclaredType dt = (DeclaredType) pt;
+                            TypeElement pte = (TypeElement) dt.asElement();
+                            String ptn = pte.getSimpleName().toString();
+                            if (nestedType.endsWith(ptn)) {
+                                return e;
+                            }
+                        }
                     }
                 }
-            } else if (method.name().equals(addName) || method.name().equals(addConfiguredName)) {
-                com.sun.javadoc.Parameter[] params = method.parameters();
-                if (params.length == 1) {
-                    return method;
+                String typeLC = null;
+                String nameLC = name.toLowerCase();
+                if (nameLC.startsWith("createconfigured")) {
+                    typeLC = name.substring(16);
+                } else if (nameLC.startsWith("create")) {
+                    typeLC = name.substring(6);
+                }
+                if (typeLC != null && typeLC.equalsIgnoreCase(nestedType)) {
+                    List<? extends VariableElement> parameters = e.getParameters();
+                    if (parameters.isEmpty()) {
+                        return e;
+                    }
                 }
             }
         }
-        if (result == null && classDoc.superclass() != null) {
-            return getMethodForType(classDoc.superclass(), nestedType);
+        TypeMirror superclass = classDoc.getSuperclass();
+        if (superclass != null) {
+            Element superType = env.getTypeUtils().asElement(superclass);
+            if (superType instanceof TypeElement) {
+                return getMethodFor((TypeElement) superType, nestedType);
+            }
         }
-        return result;
+        return null;
     }
 
     private static String toCapitalized(String s)
@@ -766,6 +902,7 @@ public class AntDoc implements Comparable
     /**
       @return true if this Ant Task/Type expects characters in the element body.
     */
+
     public boolean supportsCharacters()
     {
         return introHelper.supportsCharacters();
@@ -779,7 +916,8 @@ public class AntDoc implements Comparable
       @param clazz
       @return a string with the name for the given type
     */
-    private static String typeToString(Class<?> clazz)
+
+    private static @NotNull String typeToString(@NotNull Class<?> clazz)
     {
         String fullName = clazz.getName();
         String name = fullName.lastIndexOf(".") >= 0

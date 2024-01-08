@@ -1,4 +1,12 @@
-/**
+/*
+ * Copyright (c) 2024 Alan Snyder.
+ * All rights reserved.
+ *
+ * You may not use, copy or modify this file, except in compliance with the license agreement. For details see
+ * accompanying license terms.
+ */
+
+/*
   Copyright (c) 2003-2005 Fernando Dobladez
 
   This file is part of AntDoclet.
@@ -17,12 +25,15 @@
   along with AntDoclet; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
+
 package com.neuroning.antdoclet;
 
-import com.sun.javadoc.ClassDoc;
-import com.sun.javadoc.RootDoc;
-
 import java.util.*;
+import jdk.javadoc.doclet.*;
+import org.jetbrains.annotations.NotNull;
+
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 
 /**
   An object of this class represents a set of Java classes that are an Ant Task and an Ant Types.
@@ -32,26 +43,26 @@ import java.util.*;
 
   @author Fernando Dobladez  <dobladez@gmail.com>
 */
-@SuppressWarnings("removal, deprecation")
 public class AntRoot
 {
-    private RootDoc rootDoc;
-    private SortedSet<AntDoc> all;
-    private SortedSet<AntDoc> allTypes;
-    private SortedSet<AntDoc> allTasks;
-    private SortedSet<String> categories;
+    private final @NotNull DocletEnvironment env;
+    private final @NotNull SortedSet<AntDoc> all;
+    private final @NotNull SortedSet<AntDoc> allTypes;
+    private final @NotNull SortedSet<AntDoc> allTasks;
+    private final @NotNull SortedSet<String> categories;
 
-    public AntRoot(RootDoc rootDoc)
+    public AntRoot(@NotNull DocletEnvironment env, @NotNull Reporter reporter)
     {
-        this.rootDoc = rootDoc;
+        this.env = env;
         all = new TreeSet<>();
         allTypes = new TreeSet<>();
         allTasks = new TreeSet<>();
         categories = new TreeSet<>();
 
-        ClassDoc[] classes = rootDoc.classes();
-        for (ClassDoc c : classes) {
-            AntDoc d = AntDoc.getInstance(c.qualifiedName(), this.rootDoc);
+        List<TypeElement> types = getIncludedTypes();
+        for (TypeElement c : types) {
+            String name = c.getQualifiedName().toString();
+            AntDoc d = AntDoc.getInstance(name, this.env, reporter);
             if (d != null) {
                 all.add(d);
                 if (d.getAntCategory() != null) {
@@ -59,34 +70,47 @@ public class AntRoot
                 }
                 if (d.isTask()) {
                     allTasks.add(d);
-                } else {
+                } else if (d.isType()){
                     allTypes.add(d);
                 }
             }
         }
     }
 
-    public Iterator<String> getCategories()
+    private @NotNull List<TypeElement> getIncludedTypes()
+    {
+        List<TypeElement> result = new ArrayList<>();
+        Set<? extends Element> elements = env.getIncludedElements();
+        for (Element e : elements) {
+            if (e instanceof TypeElement) {
+                TypeElement type = (TypeElement) e;
+                result.add(type);
+            }
+        }
+        return result;
+    }
+
+    public @NotNull Iterator<String> getCategories()
     {
         return categories.iterator();
     }
 
-    public Iterator<AntDoc> getAll()
+    public @NotNull Iterator<AntDoc> getAll()
     {
         return all.iterator();
     }
 
-    public Iterator<AntDoc> getTypes()
+    public @NotNull Iterator<AntDoc> getTypes()
     {
         return allTypes.iterator();
     }
 
-    public Iterator<AntDoc> getTasks()
+    public @NotNull Iterator<AntDoc> getTasks()
     {
         return allTasks.iterator();
     }
 
-    public Iterator<AntDoc> getAllByCategory(String category)
+    public @NotNull Iterator<AntDoc> getAllByCategory(@NotNull String category)
     {
         // give category "all" a special meaning:
         if ("all".equals(category)) {
@@ -95,7 +119,7 @@ public class AntRoot
         return getByCategory(category, all);
     }
 
-    public Iterator<AntDoc> getTypesByCategory(String category)
+    public @NotNull Iterator<AntDoc> getTypesByCategory(@NotNull String category)
     {
         // give category "all" a special meaning:
         if ("all".equals(category)) {
@@ -104,7 +128,7 @@ public class AntRoot
         return getByCategory(category, allTypes);
     }
 
-    public Iterator<AntDoc> getTasksByCategory(String category)
+    public @NotNull Iterator<AntDoc> getTasksByCategory(@NotNull String category)
     {
         // give category "all" a special meaning:
         if ("all".equals(category)) {
@@ -113,7 +137,7 @@ public class AntRoot
         return getByCategory(category, allTasks);
     }
 
-    private Iterator<AntDoc> getByCategory(String category, Set<AntDoc> antdocs)
+    private @NotNull Iterator<AntDoc> getByCategory(@NotNull String category, @NotNull Set<AntDoc> antdocs)
     {
         List<AntDoc> filtered = new ArrayList<>();
         for (AntDoc d : antdocs) {
