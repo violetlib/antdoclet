@@ -26,7 +26,7 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-package com.neuroning.antdoclet;
+package org.violetlib.antdoclet;
 
 import jdk.javadoc.doclet.Doclet;
 import jdk.javadoc.doclet.DocletEnvironment;

@@ -8,7 +8,7 @@
 	<property name="src.home" value="src" />
 	<property name="lib.home" value="lib" />
 	<property name="dist.home" value="dist" />
-	<property name="root.home" value="root" />
+	<property name="root.home" value="example" />
 	<property name="templates.home" value="templates" />
 
 	<property name="dist.name" value="antdoclet-2" />
@@ -65,7 +65,6 @@
 		</jar>
 
 	</target>
-
 
 	<!-- Dist. Target ===== -->
 	<target name="dist" description="Build a binary distribution" depends="build">

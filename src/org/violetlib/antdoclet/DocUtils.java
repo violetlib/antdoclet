@@ -6,7 +6,7 @@
  * accompanying license terms.
  */
 
-package com.neuroning.antdoclet;
+package org.violetlib.antdoclet;
 
 import com.sun.source.doctree.DocCommentTree;
 import com.sun.source.doctree.DocTree;
