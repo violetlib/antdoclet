@@ -1,23 +1,17 @@
 <project name="antdoclet" default="dist" basedir=".">
 
-	<description>
-This is the main build script for AntDoclet, a tool to automatically
-generate documentation for your custom [Ant](http://ant.apache.org)
-Tasks.
-	</description>
-
 	<!-- Property Definitions ====== -->
 	<property file="build.properties" />
 
 	<!-- Directory locations =====  -->
 	<property name="build.home" value="build" />
-	<property name="src.home" value="src/java" />
+	<property name="src.home" value="src" />
 	<property name="lib.home" value="lib" />
 	<property name="dist.home" value="dist" />
 	<property name="root.home" value="root" />
 	<property name="templates.home" value="templates" />
 
-	<property name="dist.name" value="antdoclet-1.1" />
+	<property name="dist.name" value="antdoclet-2" />
 
 	<!-- Compilation Classpath ===== -->
 	<path id="compile.classpath">
@@ -43,7 +37,6 @@ Tasks.
 	<target name="clean" description="Delete old build directories">
 		<delete dir="${build.home}" />
 		<delete dir="${dist.home}" />
-		<delete dir="web" />
 		<delete file="velocity.log" />
 		<delete includeemptydirs="true">
 			<fileset dir="${basedir}">
@@ -62,6 +55,9 @@ Tasks.
 			<classpath path="${build.home}/classes" />
 			<compilerarg value="-Xlint:-removal"/>
 			<compilerarg value="-Xlint:-deprecation"/>
+            <compilerarg line="--add-exports jdk.javadoc/jdk.javadoc.internal.doclets.toolkit=ALL-UNNAMED"/>
+            <compilerarg line="--add-exports jdk.javadoc/jdk.javadoc.internal.doclets.toolkit.util=ALL-UNNAMED"/>
+            <compilerarg line="--add-exports jdk.javadoc/jdk.javadoc.internal.doclets.formats.html=ALL-UNNAMED"/>
 		</javac>
 
 		<jar jarfile="${build.home}/${ant.project.name}.jar">
@@ -72,7 +68,7 @@ Tasks.
 
 
 	<!-- Dist. Target ===== -->
-	<target name="dist" description="Build a binary AntDoclet distribution" depends="build">
+	<target name="dist" description="Build a binary distribution" depends="build">
 
 		<property name="dist.target" value="${dist.home}/${dist.name}" />
 
@@ -80,14 +76,12 @@ Tasks.
 
 		<copy todir="${dist.target}">
 			<fileset dir="${root.home}" />
-                        <fileset dir="${basedir}" includes="README.md"/>
+            <fileset dir="${basedir}" includes="README.md"/>
 		</copy>
-
 
 		<mkdir dir="${dist.target}/lib" />
 		<copy todir="${dist.target}/lib">
 			<fileset dir="${lib.home}">
-				<exclude name="markdown*" />
 			</fileset>
 			<fileset dir="${build.home}">
 				<include name="*.jar" />
@@ -107,7 +101,7 @@ Tasks.
 	</target>
 
 	<!-- SrcDist. Target ===== -->
-	<target name="srcdist" description="Build a source AntDoclet distribution" depends="clean">
+	<target name="srcdist" description="Build a source distribution" depends="clean">
 
 		<property name="srcdist.target" value="${dist.home}/${dist.name}-src" />
 
@@ -122,39 +116,6 @@ Tasks.
 
 		<delete file="${srcdist.target}.zip" />
 		<zip destfile="${srcdist.target}.zip" basedir="${dist.home}" />
-
-	</target>
-
-	<!-- Web Target ===== -->
-	<target name="web" description="Generate static project web site" depends="init">
-		<mkdir dir="web"/>
-
-		<concat destfile="web/index.html" append="false">
-
-			<header filtering="no" file="src/web/header.html" />
-			          
-			<fileset dir="${basedir}" includes="README.md"/>
-			<filterchain>
-				<filterreader classname="com.petebevin.markdown.MarkdownFilter">
-					<classpath refid="compile.classpath"/>
-				</filterreader>
-			</filterchain>
-
-			<footer filtering="no" file="src/web/footer.html" />
-		</concat>
-		<concat destfile="web/examples.html" append="false">
-
-			<header filtering="no" file="src/web/header.html" />
-			          
-			<fileset dir="src/web/" includes="examples.txt"/>
-			<filterchain>
-				<filterreader classname="com.petebevin.markdown.MarkdownFilter">
-					<classpath refid="compile.classpath"/>
-				</filterreader>
-			</filterchain>
-
-			<footer filtering="no" file="src/web/footer.html" />
-		</concat>
 
 	</target>
 

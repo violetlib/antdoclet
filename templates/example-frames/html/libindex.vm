@@ -1,0 +1,20 @@
+<html>
+<head>
+  <title>$title Ant Libraries</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+
+<div class="menu" id="categorymenu">
+
+<h1><a href="overview.html" target="task">$title</a></h1>
+
+## Iterate through the Categories
+#foreach ($category in $antroot.getCategories())
+<h4><a href="index.${category}.html" target="taskindex">$category</a><h4>
+#end
+
+<a href="index.all.html" target="taskindex"><i>all</i></a><br>
+</div>
+</body>
+</html>

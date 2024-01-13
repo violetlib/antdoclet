@@ -1,0 +1,50 @@
+<html>
+<head>
+  <title>$title Ant Tasks</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+
+<div id="taskmenu" class="menu">
+
+## Tasks
+
+#if (!$antroot.getTasksByCategory($category).isEmpty())
+<h2>${antroot.getAntCategoryPrefix($category)}Tasks</h2>
+
+  #foreach ($taskDoc in $antroot.getTasksByCategory($category))
+
+<h3><a href="${taskDoc.getFullClassName()}.html" target="task">${taskDoc.getAntName()}</a></h3>
+
+<div class="description">
+    #if ($taskDoc.getShortDescription())
+        $taskDoc.getShortDescription()
+    #else
+        <i>No description available</i>
+    #end
+</div>
+  #end
+#end
+
+## Types
+
+#if (!$antroot.getTypesByCategory($category).isEmpty())
+<h2>${antroot.getAntCategoryPrefix($category)}Types</h2>
+
+  #foreach ($taskDoc in $antroot.getTypesByCategory($category))
+<h3><a href="${taskDoc.getFullClassName()}.html" target="task">${taskDoc.getAntName()}</a></h3>
+
+<div class="description">
+    #if ($taskDoc.getShortDescription())
+        $taskDoc.getShortDescription()
+    #else
+        <i>No description available</i>
+    #end
+</div>
+
+  #end
+#end
+
+</div>
+</body>
+</html>

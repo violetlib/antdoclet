@@ -1,31 +1,27 @@
 
-AntDoclet is a tool to automatically generate documentation out of your
-[Ant](http://ant.apache.org) Tasks' source code.
+AntDoclet is a tool to automatically generate documentation from the source code of
+[Ant](https://ant.apache.org) tasks and types.
 
-It is implemented as a [Javadoc](http://java.sun.com/j2se/javadoc/) doclet,
-and generates reference documentation and other deliverables from the
-source code of your custom Ant Tasks/Types. It's been only tested with
-JDK 1.4.
-
-It uses template-based generation, using
-[Velocity](http://velocity.apache.org/). This makes it simple to
+AntDoclet uses template-based generation, using
+[Velocity](https://velocity.apache.org/). This makes it simple to
 create new deliverables or modify the ones provided.  The example
-templates generate HTML and LaTeX (PDF) and are located under the
+templates generate HTML and are located under the
 `templates/` directory.
+
+AntDoclet is a [Javadoc](https://docs.oracle.com/en/java/javase/21/javadoc) doclet.
+This release of AntDoclet has been upgraded to use the current javadoc
+doclet API. It has been tested using JDK 21.
+
+This release analyzes the source code directly. It does not require
+class files for the Ant tasks and types.
 
 
 Quick Start
 -----------
 
 The `example.build.xml` file is an example of how to run the doclet from
-Ant. You must change some properties to fit your needs, like the path to
-your tasks source code and compiled classes. If you need AntDoclet, I assume
-you are comfortable with Ant scripts ;-).
-
-IMPORTANT: The doclet needs access to both the source code _and_
-the compiled version of the tasks/types to document. This is so because
-AntDoclet uses the same runtime-reflection mechanism that Ant itself uses
-to find valid properties and nested elements from each task/type.
+Ant. You must change some properties to fit your needs, such as the path to
+your tasks source code.
 
 
 Ant-specific Javadoc tags
@@ -71,22 +67,14 @@ AntDoclet expects some ant-specific tags to build richer documentation:
 
 
 
-The javadoc comments must be valid XHTML, otherwise, the templates'
+The javadoc comments must be valid HTML, otherwise, the template
 output may be broken. Some suggestions:
 
-* Make sure all HTML tags are "balanced" (properly open and close each
-    tag).
-* Separate paragraphs should be written between `<p> </p>`.
-* Use `<code> </code>` for variable and file names.
+* Use `{@code}` for variable and file names.
 * For displaying source code in a nice box (like code examples) use
   `<pre> </pre>`.
 * Remember to escape all necessary characters to make it valid HTML (`&lt;` instead of `<`, etc.)
 
+<hr>
 
-
-<hr />
-
-Thanks,
-
-Fernando Dobladez (<http://code54.com>)
-
+Based on the original AntDoclet by Fernando Dobladez (<http://code54.com>)

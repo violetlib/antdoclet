@@ -1,0 +1,64 @@
+<project name="MakeDoc" default="build">
+
+  <!-- The title for the documentation -->
+  <property name="doctitle" value="My Ant Library"/>
+
+  <!-- Path to the source code of the ant tasks/types to document -->
+  <property name="source.dir" value=".../"/>
+
+  <!-- The Java packages to document -->
+  <property name="package.names" value="p.taskdefs,p.types"/>
+
+  <!-- Location of libraries needed to "compile" the source code -->
+  <property name="jars.dir" value=".../"/>
+
+  <!-- Location of the templates to use -->
+  <property name="templates.dir" value="${basedir}/templates/example-noframes"/>
+
+  <!-- Classpath to run the doclet -->
+  <path id="doclet.classpath">
+    <fileset id="libs" dir="${basedir}/lib">
+      <include name="*.jar"/>
+    </fileset>
+  </path>
+
+  <!-- Classpath to "compile" the source code being documented -->
+  <path id="classpath">
+    <fileset dir="${jars.dir}">
+      <include name="annotations-20.1.0.jar"/>
+    </fileset>
+  </path>
+
+  <!-- Generate the documentation -->
+  <target name="build">
+
+    <mkdir  dir="${basedir}/output/html"/>
+
+    <!-- Copy the "static" resources (images, static html files) -->
+    <copy todir="output/html/" overwrite="true">
+      <fileset dir="${templates.dir}/html/">
+        <exclude name="*.vm"/>
+      </fileset>
+    </copy>
+    
+    <!-- Generate the "dynamic" content from the templates -->
+    <javadoc access="public"
+      sourcepath="${source.dir}"
+      destdir="${basedir}/output/html"
+      packagenames="${package.names}"
+      docletpathref="doclet.classpath"
+      classpathref="classpath"
+      additionalparam="-J--add-exports=jdk.javadoc/jdk.javadoc.internal.doclets.formats.html=ALL-UNNAMED
+-J--add-exports=jdk.javadoc/jdk.javadoc.internal.doclets.toolkit.util=ALL-UNNAMED
+-J--add-exports=jdk.javadoc/jdk.javadoc.internal.doclets.toolkit=ALL-UNNAMED"
+      >
+
+      <doclet name="com.neuroning.antdoclet.AntDoclet">
+        <param name="-doctitle" value="${doctitle}" />
+        <param name="-templatesdir" value="${templates.dir}"/>
+        <param name="-templates" value="html/main.vm" />
+      </doclet>
+    </javadoc>
+  </target>
+
+</project>
