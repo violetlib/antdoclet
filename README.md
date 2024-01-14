@@ -10,15 +10,17 @@ templates generate HTML and are located in the
 AntDoclet is a [JavaDoc](https://docs.oracle.com/en/java/javase/21/javadoc) doclet.
 It has been tested using JDK 21.
 AntDoclet analyzes the source code directly; it does not require
-class files for the Ant tasks and types.
+class files for the Ant tasks and types, although class files for
+compile-time dependencies are
+required as the analysis is partly performed by the Java compiler.
 
 
 Quick Start
 -----------
 
-The `example/example.build.xml` file illustrates running the doclet from
+The file `example/example.build.xml` illustrates running the doclet from
 Ant. You must change some properties to fit your needs, such as the path to
-your tasks source code.
+your source code.
 
 
 Ant-specific JavaDoc tags
@@ -26,21 +28,24 @@ Ant-specific JavaDoc tags
 
 AntDoclet expects some ant-specific tags to build richer documentation:
 
-* The JavaDoc comment of a class should have either the tag `@ant.task`
-  (for Tasks) or tag `@ant.type` (for Types used from ant
-  Tasks). Both accept three attributes: `category, name, ignored`. Examples:
+* The JavaDoc comment of a class that implements an Ant task or type
+  should have either the tag `@ant.task`
+  (for a task) or tag `@ant.type` (for a type).
+  Both tags accept these attributes: `category, name, ignore`. Examples:
 
         @ant.task name="copy" category="filesystem"
         @ant.type name="fileset" category="filesystem"
         @ant.task ignore="true"
- 
-  Categories may optionally be used to avoid long task menus.
-
+  The name attribute specifies the name by which the task or type is typically defined
+  (most likely in an `antlib.xml` file provided with the class library).
+  Categories may optionally be used to avoid long task menus when the library
+  contains a large number of tasks and types.
   When `ignore` is true, the class will not be included in the
   documentation. This is useful for ignoring abstract classes or
   tasks/types that are not to be exposed in the docs.
 
-* The documentation of task/type attributes is extracted from the corresponding
+* The documentation of task/type attributes is extracted from the JavaDoc comment of the
+  corresponding
   setter methods. The preferred capitalization of the attribute name can be specified using
   the tag `@ant.prop`, for example:
   
@@ -49,41 +54,54 @@ AntDoclet expects some ant-specific tags to build richer documentation:
   Two additional tags may be used
 
         @ant.required 
-        @ant.not-required
+        @ant.optional
 
-  to indicate that the attribute is (or not) required.
-
-  An additional description can be added to the tag. Example:
+  to indicate that the attribute is required or optional. An additional description can
+  be added, for example:
 
         /**
          * Overwrite any existing destination file(s).
          *
-         * If true force overwriting of destination file(s)
-         * even if the destination file(s) are younger than
+         * If true, force overwriting of destination file(s)
+         * even if the destination file(s) are nwer than
          * the corresponding source file.
          *
-         * @ant.not-required Default is false.
+         * @ant.optional Default is false.
          */
         public void setOverwrite(boolean overwrite) {
             this.forceOverwrite = overwrite;
         }
 
- * Global properties and referenced Ant elements used by a task can be documented by
- declaring a `public static final String` field whose value is the property name or the
- ID of the referenced element. JavaDoc comments for these fields must include
- the corresponding tag:
- 
-        @ant.prop name="document.title"
-        @ant.ref name="default.classpath" type="Path"
+ * The documentation of nested elements is extracted from the corresponding `add`,
+   `addConfigured`, `addXXX`, `addConfiguredXXX` or `createXXX` methods.
+   The `@ant.type` tag can be used on these methods, with the `name` attribute
+   specifying the preferred capitalization of a named nested element.
 
-The type of the property value or referenced element is specified using the type attribute.
-The type attribute for a property defaults to `String`.
+ * Global properties and referenced Ant elements used by a task or type can be documented by
+   declaring a `public static final String` field whose value is the property name or the
+   ID of the referenced element. (The name of the field does not matter.)
+   JavaDoc comments for these fields must include
+   the `@ant.prop` tag (for properties) or the `@ant.ref` tag (for references),
+   as in these examples:
+ 
+        /**
+         * @ant.prop type="String"
+         */
+        public static final String DEFAULT_WIDTH_NAME = "default.width";
+
+        /**
+         * @ant.ref type="Path"
+         */
+        public static final String DEFAULT_PATH_ID = "default.path";
+
+   The type of the property value or referenced element is specified using the `type` attribute.
+   The `type` attribute for a property defaults to `String`.
 
 All JavaDoc comments must be valid HTML, otherwise, the template
 output may be broken. Some suggestions:
 
 * Use `{@code}` for variable and file names.
-* For displaying source code in a nice box (like code examples) use
+* For displaying source code in a box (like code examples) use
   `<pre> </pre>`. Avoid enclosing a trailing newline as it will create a blank line in the box.
 * Remember to escape all necessary characters to make it valid HTML (`&lt;` instead of `<`, etc.)
 

@@ -55,6 +55,8 @@ public class AntDoc
     private final @NotNull TypeElement thisType;
     private final @NotNull TypeInfo typeInfo;
     private @Nullable List<AntDoc> nestedClasses;
+    private @NotNull List<Property> properties;
+    private @NotNull List<Reference> references;
 
     private static final List<String> antEntities = List.of("ant.task", "ant.type", "ant.prop", "ant.ref");
 
@@ -69,6 +71,8 @@ public class AntDoc
             throw new IllegalStateException(message);
         }
         this.typeInfo = ti;
+        properties = discoverProperties();
+        references = discoverReferences();
     }
 
     public @NotNull List<AntDoc> getNestedClasses()
@@ -362,9 +366,9 @@ public class AntDoc
     }
 
     /**
-      Get HTML text that describes the non-required nature of an attribute.
-      The text is extracted from the {@code ant.not-required} tag.
-      @return The descriptive text. Returns null if this attribute is not declared as not-required.
+      Get HTML text that describes the optional nature of an attribute.
+      The text is extracted from the {@code ant.optional} tag.
+      @return The descriptive text. Returns null if this attribute is not declared as optional.
       Returns an empty string if no documentation is available.
     */
 
@@ -372,7 +376,12 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @Nullable String getAttributeNotRequired(@NotNull Attribute a)
     {
-        return env.tagValue(a.info.definingMethod, "ant.not-required");
+        String s = env.tagValue(a.info.definingMethod, "ant.optional");
+        if (s == null) {
+            // backward compatibility
+            s = env.tagValue(a.info.definingMethod, "ant.not-required");
+        }
+        return s;
     }
 
     /**
@@ -380,12 +389,28 @@ public class AntDoc
     */
 
     private static class Property
+      implements Comparable<Property>
     {
-        private final @NotNull String fieldName;
+        private final @NotNull VariableElement field;
+        private final @NotNull String propertyName;
+        private final @NotNull String propertyType;
+        private final long sortKey;
 
-        public Property(@NotNull String fieldName)
+        public Property(@NotNull VariableElement field,
+                        @NotNull String propertyName,
+                        @NotNull String propertyType,
+                        long sortKey)
         {
-            this.fieldName = fieldName;
+            this.field = field;
+            this.propertyName = propertyName;
+            this.propertyType = propertyType;
+            this.sortKey = sortKey;
+        }
+
+        @Override
+        public int compareTo(@NotNull AntDoc.Property o)
+        {
+            return (int) (sortKey - o.sortKey);
         }
     }
 
@@ -398,12 +423,7 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull List<Property> getProperties()
     {
-        List<Property> result = new ArrayList<>();
-        List<VariableElement> l = getPropertyFieldsSorted();
-        for (VariableElement f : l) {
-            result.add(new Property(f.getSimpleName().toString()));
-        }
-        return result;
+        return new ArrayList<>(properties);
     }
 
     /**
@@ -414,26 +434,16 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getPropertyName(@NotNull Property p)
     {
-        VariableElement field = getPropertyField(p);
-        if (field != null) {
-            String name = env.tagAttributeValue(field, "ant.prop", "name");
-            if (name != null) {
-                return name;
-            }
-        }
-        return "";
+        return p.propertyName;
     }
 
     // For template use
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getPropertyDescription(@NotNull Property p)
     {
-        VariableElement field = getPropertyField(p);
-        if (field != null) {
-            String d = env.getDescription(field);
-            if (d != null) {
-                return d;
-            }
+        String d = env.getDescription(p.field);
+        if (d != null) {
+            return d;
         }
         return "";
     }
@@ -442,14 +452,7 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getPropertyType(@NotNull Property p)
     {
-        VariableElement field = getPropertyField(p);
-        if (field != null) {
-            String type = env.tagAttributeValue(field, "ant.prop", "type");
-            if (type != null) {
-                return type;
-            }
-        }
-        return "String";
+        return p.propertyType;
     }
 
     // For template use
@@ -461,41 +464,28 @@ public class AntDoc
         return te != null ? env.getTypeNameLinked(te) : typeName;
     }
 
-    private @Nullable VariableElement getPropertyField(@NotNull Property p)
+    private @NotNull List<Property> discoverProperties()
     {
-        String fieldName = p.fieldName;
-        List<VariableElement> fields = getPropertyFields();
-        for (VariableElement field : fields) {
-            if (field.getSimpleName().toString().equals(fieldName)) {
-                return field;
-            }
-        }
-        return null;
-    }
-
-    private @NotNull List<VariableElement> getPropertyFieldsSorted()
-    {
-        List<VariableElement> l = getPropertyFields();
-        l.sort((o1, o2) -> {
-            long pos1 = getSourceLine(o1);
-            long pos2 = getSourceLine(o2);
-            return (int) (pos1 - pos2);
-        });
-        return l;
-    }
-
-    private @NotNull List<VariableElement> getPropertyFields()
-    {
-        List<VariableElement> l = new ArrayList<>();
+        List<Property> l = new ArrayList<>();
         List<VariableElement> fields = getFields(thisType);
         for (VariableElement field : fields) {
             Set<Modifier> mods = field.getModifiers();
             if (mods.contains(Modifier.PUBLIC)
               && mods.contains(Modifier.STATIC)
               && mods.contains(Modifier.FINAL) && isProperty(field)) {
-                l.add(field);
+                Object value = field.getConstantValue();
+                if (value instanceof String name) {
+                    long line = getSourceLine(field);
+                    String type = env.tagAttributeValue(field, "ant.prop", "type");
+                    if (type == null) {
+                        type = "String";
+                    }
+                    Property p = new Property(field, name, type, line);
+                    l.add(p);
+                }
             }
         }
+        l.sort(null);
         return l;
     }
 
@@ -504,12 +494,28 @@ public class AntDoc
     */
 
     private static class Reference
+      implements Comparable<Reference>
     {
-        private final @NotNull String fieldName;
+        private final @NotNull VariableElement field;
+        private final @NotNull String id;
+        private final @NotNull String referenceType;
+        private final long sortKey;
 
-        public Reference(@NotNull String fieldName)
+        public Reference(@NotNull VariableElement field,
+                         @NotNull String id,
+                         @NotNull String referenceType,
+                         long sortKey)
         {
-            this.fieldName = fieldName;
+            this.field = field;
+            this.id = id;
+            this.referenceType = referenceType;
+            this.sortKey = sortKey;
+        }
+
+        @Override
+        public int compareTo(@NotNull AntDoc.Reference o)
+        {
+            return (int) (sortKey - o.sortKey);
         }
     }
 
@@ -521,38 +527,23 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull List<Reference> getReferences()
     {
-        List<Reference> result = new ArrayList<>();
-        List<VariableElement> l = getReferenceFieldsSorted();
-        for (VariableElement f : l) {
-            result.add(new Reference(f.getSimpleName().toString()));
-        }
-        return result;
+        return new ArrayList<>(references);
     }
 
     // For template use
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getReferenceName(@NotNull Reference r)
     {
-        VariableElement field = getReferenceField(r);
-        if (field != null) {
-            String name = env.tagAttributeValue(field, "ant.ref", "name");
-            if (name != null) {
-                return name;
-            }
-        }
-        return "";
+        return r.id;
     }
 
     // For template use
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getReferenceDescription(@NotNull Reference r)
     {
-        VariableElement field = getReferenceField(r);
-        if (field != null) {
-            String d = env.getDescription(field);
-            if (d != null) {
-                return d;
-            }
+        String d = env.getDescription(r.field);
+        if (d != null) {
+            return d;
         }
         return "";
     }
@@ -561,14 +552,7 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getReferenceType(@NotNull Reference r)
     {
-        VariableElement field = getReferenceField(r);
-        if (field != null) {
-            String type = env.tagAttributeValue(field, "ant.ref", "type");
-            if (type != null) {
-                return type;
-            }
-        }
-        return "";
+        return r.referenceType;
     }
 
     // For template use
@@ -580,41 +564,29 @@ public class AntDoc
         return te != null ? env.getTypeNameLinked(te) : typeName;
     }
 
-    private @Nullable VariableElement getReferenceField(@NotNull Reference r)
+    private @NotNull List<Reference> discoverReferences()
     {
-        String fieldName = r.fieldName;
-        List<VariableElement> fields = getReferenceFields();
-        for (VariableElement field : fields) {
-            if (field.getSimpleName().toString().equals(fieldName)) {
-                return field;
-            }
-        }
-        return null;
-    }
-
-    private @NotNull List<VariableElement> getReferenceFieldsSorted()
-    {
-        List<VariableElement> l = getReferenceFields();
-        l.sort((o1, o2) -> {
-            long pos1 = getSourceLine(o1);
-            long pos2 = getSourceLine(o2);
-            return (int) (pos1 - pos2);
-        });
-        return l;
-    }
-
-    private @NotNull List<VariableElement> getReferenceFields()
-    {
-        List<VariableElement> l = new ArrayList<>();
+        List<Reference> l = new ArrayList<>();
         List<VariableElement> fields = getFields(thisType);
         for (VariableElement field : fields) {
             Set<Modifier> mods = field.getModifiers();
             if (mods.contains(Modifier.PUBLIC)
               && mods.contains(Modifier.STATIC)
               && mods.contains(Modifier.FINAL) && isReference(field)) {
-                l.add(field);
+                Object value = field.getConstantValue();
+                if (value instanceof String id) {
+                    long line = getSourceLine(field);
+                    String type = env.tagAttributeValue(field, "ant.ref", "type");
+                    if (type == null) {
+                        env.getReporter().print(Diagnostic.Kind.ERROR, "Reference lacks type: " + id);
+                        type = "Object";
+                    }
+                    Reference r = new Reference(field, id, type, line);
+                    l.add(r);
+                }
             }
         }
+        l.sort(null);
         return l;
     }
 
@@ -939,16 +911,38 @@ public class AntDoc
         return false;
     }
 
-    private boolean isProperty(@NotNull Element e)
+    private boolean isProperty(@NotNull VariableElement e)
     {
-        String antName = env.tagAttributeValue(e, "ant.prop", "name");
-        return antName != null;
+        String tag = env.tagValue(e, "ant.prop");
+        if (tag != null) {
+            Object value = e.getConstantValue();
+            if (value instanceof String name) {
+                String dn = env.tagAttributeValue(e, "ant.prop", "name");
+                if (dn != null && !dn.equals(name)) {
+                    env.getReporter().print(Diagnostic.Kind.WARNING,
+                      String.format("Inconsistent property names %s and %s", name, dn));
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
-    private boolean isReference(@NotNull Element e)
+    private boolean isReference(@NotNull VariableElement e)
     {
-        String antName = env.tagAttributeValue(e, "ant.ref", "name");
-        return antName != null;
+        String tag = env.tagValue(e, "ant.ref");
+        if (tag != null) {
+            Object value = e.getConstantValue();
+            if (value instanceof String id) {
+                String dd = env.tagAttributeValue(e, "ant.ref", "name");
+                if (dd != null && !dd.equals(id)) {
+                    env.getReporter().print(Diagnostic.Kind.WARNING,
+                      String.format("Inconsistent reference IDs %s and %s", id, dd));
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     // For template use
