@@ -315,6 +315,10 @@ public class DocUtils
                                               @NotNull String tagName,
                                               @NotNull String attributeName)
     {
+        if (tagName.startsWith("@")) {
+            throw new AssertionError("Tag name should not start with @: " + tagName);
+        }
+
         String value = tagValue(e, tagName);
         if (value == null) {
             return null;
@@ -343,9 +347,18 @@ public class DocUtils
     {
         List<? extends DocTree> content = tagContent(e, tagName);
         if (content == null) {
-            //System.err.println("No contents for tag " + tagName + " on " + e);
+//            System.err.println("No content for tag " + tagName + " on " + e);
+//            DocCommentTree tree = docTrees.getDocCommentTree(e);
+//            if (tree != null) {
+//                Util.show(tree);
+//            } else {
+//                System.err.println("No tree");
+//            }
+
             return null;
         }
+
+        //System.err.println("Content: " + content.size());
 
         if (content.isEmpty()) {
             return "";

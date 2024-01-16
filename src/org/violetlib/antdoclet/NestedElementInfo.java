@@ -23,9 +23,10 @@ public class NestedElementInfo
 {
     public static @NotNull NestedElementInfo create(@Nullable String name,
                                                     @NotNull List<TypeMirror> types,
-                                                    @NotNull ExecutableElement definingMethod)
+                                                    @NotNull ExecutableElement definingMethod,
+                                                    @Nullable ExecutableElement constructor)
     {
-        return new NestedElementInfo(name, types, definingMethod);
+        return new NestedElementInfo(name, types, definingMethod, constructor);
     }
 
     /**
@@ -46,12 +47,20 @@ public class NestedElementInfo
     */
     public final @NotNull ExecutableElement definingMethod;
 
+    /**
+      The constructor of the element type.
+      A possible source of a description.
+    */
+    public final @Nullable ExecutableElement constructor;
+
     private NestedElementInfo(@Nullable String name,
                               @NotNull List<TypeMirror> types,
-                              @NotNull ExecutableElement definingMethod)
+                              @NotNull ExecutableElement definingMethod,
+                              @Nullable ExecutableElement constructor)
     {
         this.name = name;
         this.types = types;
         this.definingMethod = definingMethod;
+        this.constructor = constructor;
     }
 }

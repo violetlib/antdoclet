@@ -689,7 +689,11 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getNamedElementName(@NotNull NestedElement e)
     {
-        String name = e.info.name;
+        String name = env.tagAttributeValue(e.info.definingMethod, "ant.type", "name");
+        if (name != null) {
+            return name;
+        }
+        name = e.info.name;
         if (name != null) {
             return name;
         }
@@ -724,7 +728,14 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @Nullable String getNamedNestedElementDescription(@NotNull NestedElement e)
     {
-        return env.getDescription(e.info.definingMethod);
+        String d = env.getDescription(e.info.definingMethod);
+        if (d != null) {
+            return d;
+        }
+        if (e.info.constructor != null) {
+            return env.getDescription(e.info.constructor);
+        }
+        return null;
     }
 
     /**

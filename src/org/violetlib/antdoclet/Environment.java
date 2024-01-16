@@ -169,8 +169,8 @@ public class Environment
     /**
       Returns the textual value of the designated attribute of the first (custom) javadoc tag with the given name.
 
-      @return the text, or null if no tag with the specified name is present or not attribute with the
-      specified name is present.
+      @return the text, or null if no tag with the specified name is present or no attribute with the specified name is
+      present.
     */
 
     public @Nullable String tagAttributeValue(@Nullable Element e, @NotNull String tagName, @NotNull String attribute)

@@ -65,6 +65,7 @@ public class TypeInfoBuilder
         final List<ExecutableElement> methods = new ArrayList<>();
         ExecutableElement addTaskMethod;
         ExecutableElement addTextMethod;
+        ExecutableElement constructor;
 
         /**
           Create a description of a named nested element.
@@ -157,6 +158,15 @@ public class TypeInfoBuilder
     private @NotNull NestedElementInfo createNamedTypeInfo(@NotNull NestedTypeInfo info)
     {
         // TBD: priority
+
+//        System.err.println("Creating named type info " + info.name + " " + info.methods.size());
+//        for (ExecutableElement e : info.methods) {
+//            System.err.println("  " + e.getSimpleName());
+//        }
+//        if (info.constructor != null) {
+//            System.err.println("  Constructor: " + info.constructor.getSimpleName());
+//        }
+
         ExecutableElement definingMethod = info.methods.getFirst();
 
         List<TypeMirror> types = info.types;
@@ -170,13 +180,13 @@ public class TypeInfoBuilder
             reporter.print(Diagnostic.Kind.WARNING, sb.toString());
         }
 
-        return NestedElementInfo.create(info.name, info.types, definingMethod);
+        return NestedElementInfo.create(info.name, info.types, definingMethod, info.constructor);
     }
 
     private @NotNull NestedElementInfo createUnnamedTypeInfo(@NotNull NestedTypeInfo info)
     {
         ExecutableElement definingMethod = info.methods.getFirst();
-        return NestedElementInfo.create(info.name, info.types, definingMethod);
+        return NestedElementInfo.create(info.name, info.types, definingMethod, info.constructor);
     }
 
     public void foundNestedClass(@NotNull TypeElement te)
@@ -277,7 +287,7 @@ public class TypeInfoBuilder
         }
         info.methods.add(method);
         if (constructor != null) {
-            info.methods.add(constructor);
+            info.constructor = constructor;
         }
     }
 
@@ -298,6 +308,7 @@ public class TypeInfoBuilder
         if (info != null) {
             return info;
         }
+
         info = new NestedTypeInfo(name);
         namedTypeMap.put(name, info);
         return info;
