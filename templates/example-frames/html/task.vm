@@ -147,13 +147,10 @@ $taskDoc.getDescription()
   ## Report named nested elements
 
   #foreach ($element in $taskDoc.getNamedElements())
-    #if ($taskDoc.getNamedElementDoc($element))
-        <h4>$taskDoc.getNestedElementTypeLinked($element) $taskDoc.getNamedElementName($element) ...</h4>
-      #if ($taskDoc.getNamedNestedElementDescription($element))
-        $taskDoc.getNamedNestedElementDescription($element)
-      #end
+    <h4>$taskDoc.getNestedElementTypeLinked($element) $taskDoc.getNamedElementName($element) ...</h4>
+    #if ($taskDoc.getNamedNestedElementDescription($element))
+      $taskDoc.getNamedNestedElementDescription($element)
     #end
-
   #end
 
   ## Report unnamed nested element types

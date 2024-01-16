@@ -913,7 +913,7 @@ public class AntDoc
     private boolean isTagged(@NotNull Element e)
     {
         for (String en : antEntities) {
-            String s = env.tagAttributeValue(e, en, "name");
+            String s = env.tagValue(e, en);
             if (s != null) {
                 return true;
             }

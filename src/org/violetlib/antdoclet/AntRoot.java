@@ -48,8 +48,9 @@ public class AntRoot
     public static @NotNull AntRoot create(@NotNull AntDocCache docCache, @NotNull Set<? extends Element> elements)
     {
         if (false) {
+            debug("Included elements");
             for (Element e : elements) {
-                System.err.println(e.getSimpleName());
+                debug(e.getSimpleName().toString());
             }
         }
 
@@ -106,6 +107,7 @@ public class AntRoot
                 if (d.isTask()) {
                     uncategorizedTasks.add(d);
                 } else if (d.isType()){
+                    debug("Adding uncategorized type: " + d.getAntName());
                     uncategorizedTypes.add(d);
                 }
             }
@@ -138,8 +140,7 @@ public class AntRoot
     {
         List<TypeElement> result = new ArrayList<>();
         for (Element e : elements) {
-            if (e instanceof TypeElement) {
-                TypeElement type = (TypeElement) e;
+            if (e instanceof TypeElement type) {
                 if (shouldIncludeElement(type)) {
                     result.add(type);
                 }
@@ -156,9 +157,11 @@ public class AntRoot
     {
         AntDoc d = docCache.getOrCreate(te);
         if (d == null) {
+            debug("Rejected: no AntDoc created: " + te.getQualifiedName());
             return false;
         }
         if (d.isIgnored()) {
+            debug("Rejected: isIgnored: " + te.getQualifiedName());
             return false;
         }
         if (d.isTagged()) {
@@ -168,6 +171,7 @@ public class AntRoot
         if (d.isSubtypeOf("org.apache.tools.ant.ProjectComponent")) {
             return true;
         }
+        debug("Rejected: !isTagged or !isSubtype(ProjectComponent): " + te.getQualifiedName());
         return false;
     }
 
@@ -299,5 +303,12 @@ public class AntRoot
             }
         }
         return filtered;
+    }
+
+    private static void debug(@NotNull String message)
+    {
+        if (false) {
+            System.err.println(message);
+        }
     }
 }
