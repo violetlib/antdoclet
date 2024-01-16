@@ -856,17 +856,6 @@ public class AntDoc
     }
 
     /**
-      @return true if the defining class of this entity is an inner class
-    */
-
-    // TBD: is this needed?
-
-    public boolean isInnerClass()
-    {
-        return env.isInnerClass(thisType);
-    }
-
-    /**
       Return an optional category prefix for use as a title in a menu.
     */
 
@@ -996,18 +985,6 @@ public class AntDoc
         System.err.println(t != null ? t : "NULL");
         return t;
     }
-
-//    /**
-//      Return a new AntDoc for the "container" of this type. Only makes sense for inner classes.
-//    */
-//
-//    public @Nullable Element getContainerDoc()
-//    {
-//        if (!isInnerClass()) {
-//            return null;
-//        }
-//        return thisType.getEnclosingElement();
-//    }
 
     /**
       @return true if this Ant Task/Type expects text in the element body.

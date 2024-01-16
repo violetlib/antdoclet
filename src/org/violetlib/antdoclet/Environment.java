@@ -68,14 +68,6 @@ public class Environment
         return reporter;
     }
 
-    public boolean isInnerClass(@NotNull TypeElement te)
-    {
-        // TBD: not sure this works
-
-        Element outer = env.getElementUtils().getOutermostTypeElement(te);
-        return outer != null && outer != te;
-    }
-
     public boolean isIncluded(@NotNull TypeMirror t)
     {
         TypeElement te = docUtils.getType(t);
