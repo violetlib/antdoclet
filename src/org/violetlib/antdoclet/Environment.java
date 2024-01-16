@@ -101,7 +101,21 @@ public class Environment
 
     public @Nullable TypeElement getTypeElement(@NotNull CharSequence name)
     {
-        return env.getElementUtils().getTypeElement(name);
+        TypeElement te = env.getElementUtils().getTypeElement(name);
+        if (te != null) {
+            return te;
+        }
+
+        String ns = name.toString();
+        for (Element e : env.getIncludedElements()) {
+            if (e.getSimpleName().toString().equals(ns)) {
+                if (e instanceof TypeElement type) {
+                    return type;
+                }
+            }
+        }
+
+        return null;
     }
 
     public @NotNull String getTypeName(@NotNull TypeMirror t)

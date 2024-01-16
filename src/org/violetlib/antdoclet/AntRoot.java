@@ -86,7 +86,7 @@ public class AntRoot
         for (TypeElement te : new ArrayList<>(types)) {
             AntDoc d = docCache.get(te);
             if (d != null) {
-                for (TypeElement nte : d.getAllUnnamedNestedElementTypes()) {
+                for (TypeElement nte : d.getAllReferencedTypes()) {
                     if (!types.contains(nte)) {
                         AntDoc nd = docCache.getOrCreate(nte);
                         auxiliaryTypes.add(nd);

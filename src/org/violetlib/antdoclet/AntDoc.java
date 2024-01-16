@@ -464,6 +464,12 @@ public class AntDoc
         return te != null ? env.getTypeNameLinked(te) : typeName;
     }
 
+    private @Nullable TypeElement getPropertyTypeElement(@NotNull Property p)
+    {
+        String typeName = getPropertyType(p);
+        return env.getTypeElement(typeName);
+    }
+
     private @NotNull List<Property> discoverProperties()
     {
         List<Property> l = new ArrayList<>();
@@ -561,7 +567,20 @@ public class AntDoc
     {
         String typeName = getReferenceType(r);
         TypeElement te = env.getTypeElement(typeName);
-        return te != null ? env.getTypeNameLinked(te) : typeName;
+
+        if (te == null) {
+            String message = String.format("%s: Type %s cannot be linked [type element not found]", getClassName(), typeName);
+            env.getReporter().print(Diagnostic.Kind.WARNING, message);
+            return typeName;
+        }
+
+        return env.getTypeNameLinked(te);
+    }
+
+    private @Nullable TypeElement getReferenceTypeElement(@NotNull Reference r)
+    {
+        String typeName = getReferenceType(r);
+        return env.getTypeElement(typeName);
     }
 
     private @NotNull List<Reference> discoverReferences()
@@ -665,15 +684,94 @@ public class AntDoc
     }
 
     /**
+      Return all referenced types, without checking for their inclusion status.
+    */
+
+    public @NotNull Set<TypeElement> getAllReferencedTypes()
+    {
+        Set<TypeElement> result = new HashSet<>();
+        result.addAll(getAllNamedNestedElementTypes());
+        result.addAll(getAllUnnamedNestedElementTypes());
+        result.addAll(getAllAttributeTypes());
+        result.addAll(getAllPropertyTypes());
+        result.addAll(getAllReferenceTypes());
+        return result;
+    }
+
+    /**
+      Return all property types, without checking for their inclusion status.
+    */
+
+    public @NotNull Set<TypeElement> getAllPropertyTypes()
+    {
+        Set<TypeElement> result = new HashSet<>();
+        for (Property p : properties) {
+            TypeElement nte = getPropertyTypeElement(p);
+            if (nte != null) {
+                result.add(nte);
+            }
+        }
+        return result;
+    }
+
+    /**
+      Return all reference types, without checking for their inclusion status.
+    */
+
+    public @NotNull Set<TypeElement> getAllReferenceTypes()
+    {
+        Set<TypeElement> result = new HashSet<>();
+        for (Reference p : references) {
+            TypeElement nte = getReferenceTypeElement(p);
+            if (nte != null) {
+                result.add(nte);
+            }
+        }
+        return result;
+    }
+
+    /**
+      Return all attribute types, without checking for their inclusion status.
+    */
+
+    public @NotNull Set<TypeElement> getAllAttributeTypes()
+    {
+        Set<TypeElement> result = new HashSet<>();
+        for (AttributeInfo info : typeInfo.getAttributes().values()) {
+            TypeElement nte = env.getTypeElement(info.type);
+            if (nte != null) {
+                result.add(nte);
+            }
+        }
+        return result;
+    }
+
+    /**
       Return all unnamed nested element types, without checking for their inclusion status.
     */
 
-    public @NotNull List<TypeElement> getAllUnnamedNestedElementTypes()
+    public @NotNull Set<TypeElement> getAllUnnamedNestedElementTypes()
     {
-        List<TypeElement> result = new ArrayList<>();
+        Set<TypeElement> result = new HashSet<>();
         for (NestedElementInfo info : typeInfo.getUnnamedNestedElements()) {
             TypeElement nte = env.getTypeElement(info.types.getFirst());
-            if (nte != null && !result.contains(nte)) {
+            if (nte != null) {
+                result.add(nte);
+            }
+        }
+        return result;
+    }
+
+    /**
+      Return all named nested element types, without checking for their inclusion status.
+    */
+
+    public @NotNull Set<TypeElement> getAllNamedNestedElementTypes()
+    {
+        Set<TypeElement> result = new HashSet<>();
+        for (NestedElementInfo info : typeInfo.getNamedNestedElements().values()) {
+            TypeElement nte = env.getTypeElement(info.types.getFirst());
+            if (nte != null) {
                 result.add(nte);
             }
         }
@@ -853,6 +951,17 @@ public class AntDoc
     public @NotNull String getFullClassName()
     {
         return thisType.getQualifiedName().toString();
+    }
+
+    /**
+      Return the simple name of the defining class of this entity.
+      @see #getAntName()
+    */
+
+    // For template use
+    public @NotNull String getClassName()
+    {
+        return thisType.getSimpleName().toString();
     }
 
     /**
@@ -1101,5 +1210,11 @@ public class AntDoc
     public boolean isSubtypeOf(@NotNull String typeName)
     {
         return env.isSubtypeOf(thisType.asType(), typeName);
+    }
+
+    @Override
+    public @NotNull String toString()
+    {
+        return super.toString() + " " + getFullClassName();
     }
 }

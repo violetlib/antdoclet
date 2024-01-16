@@ -63,8 +63,6 @@ public class DocUtils
 
     private DocUtils(@NotNull Doclet doclet, @NotNull DocletEnvironment env, @NotNull Reporter reporter)
     {
-        System.err.println("Creating DocUtils");
-
         this.env = env;
         this.docTrees = env.getDocTrees();
         this.elementUtils = env.getElementUtils();
