@@ -5,10 +5,13 @@ import jdk.javadoc.doclet.Reporter;
 import org.jetbrains.annotations.NotNull;
 
 import javax.tools.Diagnostic;
+import javax.tools.FileObject;
+import javax.tools.JavaFileObject;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 
 /**
 
@@ -76,6 +79,18 @@ public class ContentProcessor
                     // TBD: need to escape HTML characters like <
                     w.write(text);
                 }
+            } else if (kind == DocTree.Kind.SNIPPET) {
+                SnippetTree t = (SnippetTree) tag;
+                List<? extends DocTree> ats = t.getAttributes();
+                TextTree body = t.getBody();
+                if (body != null) {
+                    String text = body.getBody();
+                    if (!text.isEmpty()) {
+                        text = processSnippetBody(text);
+                        debug("Snippet: " + text);
+                        w.write("<pre class=\"snippet\">" + text + "</pre>");
+                    }
+                }
             } else if (kind == DocTree.Kind.ENTITY) {
                 EntityTree t = (EntityTree) tag;
                 String name = t.getName().toString();
@@ -136,10 +151,70 @@ public class ContentProcessor
                 } else {
                     w.write(body);
                 }
+            } else if (kind == DocTree.Kind.ERRONEOUS) {
+                ErroneousTree t = (ErroneousTree) tag;
+                Diagnostic<JavaFileObject> d = t.getDiagnostic();
+                FileObject source = d.getSource();
+                int start = (int) d.getStartPosition();
+                int pos = (int) d.getPosition();
+                int end = (int) d.getEndPosition();
+                reporter.print(d.getKind(), source, start, pos, end, d.getMessage(Locale.getDefault()));
+
             } else {
                 error("Unknown or unsupported doc tree element: " + kind);
             }
         }
+    }
+
+    private @NotNull String processSnippetBody(@NotNull String body)
+    {
+        body = body.replace("&", "&amp;");
+        body = body.replace("<", "&lt;");
+
+        if (body.contains("\t")) {
+            error("Tabs in @snippet body are not supported");
+        }
+
+        // remove excess indentation. The excess indentation is determined by the indentation at the end of the
+        // body.
+
+        int indentationCount = 0;
+        while (body.endsWith(" ")) {
+            body = body.substring(0, body.length() - 1);
+            indentationCount++;
+        }
+
+        if (body.endsWith("\n")) {
+            body = body.substring(0, body.length() - 1);
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        String[] lines = body.lines().toArray(String[]::new);
+        int count = lines.length;
+        for (int i = 0; i < count; i++) {
+            String line = removeIndentation(lines[i], indentationCount);
+            sb.append(line);
+            if (i != count-1) {
+                sb.append("\n");
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private @NotNull String removeIndentation(@NotNull String s, int count)
+    {
+        int i = 0;
+        int len = s.length();
+        while (i < count && i < len) {
+            if (s.charAt(i) == ' ') {
+                i++;
+            } else {
+                break;
+            }
+        }
+        return s.substring(i);
     }
 
     protected void writeAttribute(@NotNull String name,
@@ -220,7 +295,7 @@ public class ContentProcessor
     private void debug(@NotNull String message)
     {
         if (false) {
-            reporter.print(Diagnostic.Kind.OTHER, message);
+            System.out.println(message);
         }
     }
 }

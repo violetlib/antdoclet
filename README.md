@@ -36,13 +36,13 @@ AntDoclet expects some ant-specific tags to build richer documentation:
         @ant.task name="copy" category="filesystem"
         @ant.type name="fileset" category="filesystem"
         @ant.task ignore="true"
-  The name attribute specifies the name by which the task or type is typically defined
+  The `name` attribute specifies the name by which the task or type is typically defined
   (most likely in an `antlib.xml` file provided with the class library).
   Categories may optionally be used to avoid long task menus when the library
   contains a large number of tasks and types.
   When `ignore` is true, the class will not be included in the
-  documentation. This is useful for ignoring abstract classes or
-  tasks/types that are not to be exposed in the docs.
+  task or type menus. (The task or type may still be referenced in the descriptions of
+  other tasks or types.)
 
 * The documentation of task/type attributes is extracted from the JavaDoc comment of the
   corresponding
@@ -101,9 +101,25 @@ All JavaDoc comments must be valid HTML, otherwise, the template
 output may be broken. Some suggestions:
 
 * Use `{@code}` for variable and file names.
-* For displaying source code in a box (like code examples) use
-  `<pre> </pre>`. Avoid enclosing a trailing newline as it will create a blank line in the box.
-* Remember to escape all necessary characters to make it valid HTML (`&lt;` instead of `<`, etc.)
+* For displaying source code in a box (like code examples) use `{@snippet}`. This is a stripped down
+  version of the standard doclet `@snippet` tag that supports no attributes or inline tags. All it does
+  is remove excess indentation and escape HTML metacharacters as needed.
+
+The syntax of `@snippet` is not obvious. Here is an example:
+
+    {@snippet :
+    if (x < 3 && y > 6) {
+        System.err.println("Bad arguments");
+    }
+    }
+
+Things to note:
+ * The colon is required.
+ * Content cannot be included in the`@snippet` line or the line with the
+   closing `}`.
+ * Braces in the content must be balanced.
+ * The indentation that is removed is the indentation of the line containing the closing `}`.
+ * The indentation to be stripped must be spaces, no tabs.
 
 <hr>
 
