@@ -99,7 +99,8 @@ public class AntDoc
         for (String en : antEntities) {
             String s = env.tagAttributeValue(type, en, "ignore");
             if ("true".equalsIgnoreCase(s)) {
-                System.err.println("Ignoring: " + env.getTypeName(type.asType()));
+                // debug
+                System.out.println("Ignoring: " + env.getTypeName(type.asType()));
                 return true;
             }
         }
@@ -569,7 +570,8 @@ public class AntDoc
         TypeElement te = env.getTypeElement(typeName);
 
         if (te == null) {
-            String message = String.format("%s: Type %s cannot be linked [type element not found]", getClassName(), typeName);
+            String message = String.format("%s: Type %s cannot be linked [type not found in sources]",
+              getClassName(), typeName);
             env.getReporter().print(Diagnostic.Kind.WARNING, message);
             return typeName;
         }
@@ -853,7 +855,10 @@ public class AntDoc
                 d = env.getDescription(te);
                 if (d == null) {
                     String thisName = env.getSimpleTypeName(thisType.asType());
-                    System.err.println("No description for " + thisName + "." + show(e.info.definingMethod));
+                    // debug
+                    env.getReporter().print(Diagnostic.Kind.WARNING,
+                      "No description found for nested element " + thisName
+                        + " in " + thisName + "." + show(e.info.definingMethod));
                 }
             }
         }
@@ -1011,7 +1016,7 @@ public class AntDoc
     private boolean isTagged(@NotNull Element e)
     {
         for (String en : antEntities) {
-            String s = env.tagValue(e, en);
+            String s = env.tagRawValue(e, en);
             if (s != null) {
                 return true;
             }
@@ -1022,7 +1027,7 @@ public class AntDoc
 
     private boolean isProperty(@NotNull VariableElement e)
     {
-        String tag = env.tagValue(e, "ant.prop");
+        String tag = env.tagRawValue(e, "ant.prop");
         if (tag != null) {
             Object value = e.getConstantValue();
             if (value instanceof String name) {
@@ -1039,7 +1044,7 @@ public class AntDoc
 
     private boolean isReference(@NotNull VariableElement e)
     {
-        String tag = env.tagValue(e, "ant.ref");
+        String tag = env.tagRawValue(e, "ant.ref");
         if (tag != null) {
             Object value = e.getConstantValue();
             if (value instanceof String id) {
@@ -1083,7 +1088,8 @@ public class AntDoc
     {
         TypeElement te = env.getTypeElement(e.info.types.getFirst());
         if (te == null) {
-            System.err.println("No type element for type of nested element with name " + e.info.name);
+            env.getReporter().print(Diagnostic.Kind.WARNING,
+              "No type element for type of nested element with name " + e.info.name);
             return null;
         }
         return env.getAntDoc(te);
@@ -1091,7 +1097,7 @@ public class AntDoc
 
     private <T> T debug(T t)
     {
-        System.err.println(t != null ? t : "NULL");
+        System.out.println(t != null ? t : "NULL");
         return t;
     }
 

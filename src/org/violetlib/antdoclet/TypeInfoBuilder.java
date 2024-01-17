@@ -159,12 +159,12 @@ public class TypeInfoBuilder
     {
         // TBD: priority
 
-//        System.err.println("Creating named type info " + info.name + " " + info.methods.size());
+//        System.out.println("Creating named type info " + info.name + " " + info.methods.size());
 //        for (ExecutableElement e : info.methods) {
-//            System.err.println("  " + e.getSimpleName());
+//            System.out.println("  " + e.getSimpleName());
 //        }
 //        if (info.constructor != null) {
-//            System.err.println("  Constructor: " + info.constructor.getSimpleName());
+//            System.out.println("  Constructor: " + info.constructor.getSimpleName());
 //        }
 
         ExecutableElement definingMethod = info.methods.getFirst();

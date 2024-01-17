@@ -55,9 +55,6 @@
 			<classpath path="${build.home}/classes" />
 			<compilerarg value="-Xlint:-removal"/>
 			<compilerarg value="-Xlint:-deprecation"/>
-            <compilerarg line="--add-exports jdk.javadoc/jdk.javadoc.internal.doclets.toolkit=ALL-UNNAMED"/>
-            <compilerarg line="--add-exports jdk.javadoc/jdk.javadoc.internal.doclets.toolkit.util=ALL-UNNAMED"/>
-            <compilerarg line="--add-exports jdk.javadoc/jdk.javadoc.internal.doclets.formats.html=ALL-UNNAMED"/>
 		</javac>
 
 		<jar jarfile="${build.home}/${ant.project.name}.jar">

@@ -84,8 +84,7 @@ public class AntDoclet
 
         assert reporter != null;
 
-        LinkSupport linkSupport = LinkSupport.create(docletEnvironment.getIncludedElements());
-        Environment env = Environment.create(docletEnvironment, this, reporter, linkSupport);
+        Environment env = Environment.create(docletEnvironment, this, reporter);
 
         // Set global parameters to the templates
         velocity.setAttribute("velocity", velocity);

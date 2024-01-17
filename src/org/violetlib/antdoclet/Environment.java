@@ -8,6 +8,7 @@
 
 package org.violetlib.antdoclet;
 
+import com.sun.source.doctree.DocTree;
 import jdk.javadoc.doclet.Doclet;
 import jdk.javadoc.doclet.DocletEnvironment;
 import jdk.javadoc.doclet.Reporter;
@@ -19,6 +20,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -29,10 +31,9 @@ public class Environment
 {
     public static @NotNull Environment create(@NotNull DocletEnvironment env,
                                               @NotNull Doclet doclet,
-                                              @NotNull Reporter reporter,
-                                              @NotNull LinkSupport linkSupport)
+                                              @NotNull Reporter reporter)
     {
-        return new Environment(env, doclet, reporter, linkSupport);
+        return new Environment(env, doclet, reporter);
     }
 
     private final @NotNull DocletEnvironment env;
@@ -42,19 +43,21 @@ public class Environment
     private final @NotNull AnalysisCache analysisCache;
     private final @NotNull AntDocCache antDocCache;
     private final @NotNull AntRoot root;
+    private final @NotNull ContentProcessing contentProcessing;
 
     private Environment(@NotNull DocletEnvironment env,
                         @NotNull Doclet doclet,
-                        @NotNull Reporter reporter,
-                        @NotNull LinkSupport linkSupport
+                        @NotNull Reporter reporter
     )
     {
         this.env = env;
         this.reporter = reporter;
-        this.linkSupport = linkSupport;
-        this.docUtils = DocUtils.create(doclet, env, reporter);
-        this.analysisCache = AnalysisCache.create(docUtils);
+
         this.antDocCache = AntDocCache.create(this);
+        this.linkSupport = LinkSupport.create(env.getIncludedElements(), antDocCache);
+        this.contentProcessing = ContentProcessing.create(linkSupport, reporter);
+        this.docUtils = DocUtils.create(doclet, env, contentProcessing, reporter);
+        this.analysisCache = AnalysisCache.create(docUtils);
         this.root = AntRoot.create(antDocCache, env.getIncludedElements());
     }
 
@@ -162,14 +165,32 @@ public class Environment
     private @Nullable String comment(@Nullable String s)
     {
         if (s != null) {
-            //System.err.println("Comment: " + s);
+            //System.out.println("Comment: " + s);
         }
         return s;
+    }
+
+    public @Nullable String tagRawValue(@Nullable Element e, @NotNull String tagName)
+    {
+        return docUtils.tagRawValue(e, tagName);
     }
 
     public @Nullable String tagValue(@Nullable Element e, @NotNull String tagName)
     {
         return docUtils.tagValue(e, tagName);
+    }
+
+    /**
+      Returns the unprocessed textual value of the designated attribute of the first (custom) javadoc tag with the given
+      name.
+
+      @return the text, or null if no tag with the specified name is present or no attribute with the specified name is
+      present.
+    */
+
+    public @Nullable String tagAttributeRawValue(@Nullable Element e, @NotNull String tagName, @NotNull String attribute)
+    {
+        return docUtils.tagAttributeRawValue(e, tagName, attribute);
     }
 
     /**
@@ -182,6 +203,31 @@ public class Environment
     public @Nullable String tagAttributeValue(@Nullable Element e, @NotNull String tagName, @NotNull String attribute)
     {
         return docUtils.tagAttributeValue(e, tagName, attribute);
+    }
+
+    private @NotNull String toRawText(@NotNull DocTree content)
+    {
+        return contentProcessing.toRawText(content);
+    }
+
+    public @NotNull String toRawText(@NotNull List<? extends DocTree> content)
+    {
+        return contentProcessing.toRawText(content);
+    }
+
+    public @NotNull String toHTML(@NotNull String content)
+    {
+        return contentProcessing.toHTML(content);
+    }
+
+    public @NotNull String toHTML(@NotNull DocTree content)
+    {
+        return contentProcessing.toHTML(content);
+    }
+
+    public @NotNull String toHTML(@NotNull List<? extends DocTree> content)
+    {
+        return contentProcessing.toHTML(content);
     }
 
     public long getLineNumber(@NotNull Element e)

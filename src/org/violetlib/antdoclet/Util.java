@@ -26,9 +26,9 @@ public class Util
 
     private static void showIndented(@NotNull String indent, @NotNull DocTree tree)
     {
-        System.err.print(indent);
+        System.out.print(indent);
         DocTree.Kind kind = tree.getKind();
-        System.err.print(kind);
+        System.out.print(kind);
 
         if (kind == DocTree.Kind.DOC_COMMENT) {
             DocCommentTree d = (DocCommentTree) tree;
@@ -39,13 +39,13 @@ public class Util
         } else if (kind == DocTree.Kind.UNKNOWN_BLOCK_TAG) {
             UnknownBlockTagTree t = (UnknownBlockTagTree) tree;
             String tagName = t.getTagName();
-            System.err.println(" " + tagName);
+            System.out.println(" " + tagName);
             List<? extends DocTree> content = t.getContent();
             showIndented(indent + "[content]", content);
         } else if (kind == DocTree.Kind.TEXT) {
             TextTree t = (TextTree) tree;
-            System.err.println(t.getBody());
+            System.out.println(t.getBody());
         }
-        System.err.println();
+        System.out.println();
     }
 }

@@ -23,16 +23,18 @@ import java.util.Set;
 
 public class LinkSupport
 {
-    public static @NotNull LinkSupport create(@NotNull Set<? extends Element> includedElements)
+    public static @NotNull LinkSupport create(@NotNull Set<? extends Element> includedElements, @NotNull AntDocCache antDocs)
     {
-        return new LinkSupport(includedElements);
+        return new LinkSupport(includedElements, antDocs);
     }
 
     private final @NotNull Set<? extends Element> includedElements;
+    private final @NotNull AntDocCache antDocs;
 
-    private LinkSupport(@NotNull Set<? extends Element> includedElements)
+    private LinkSupport(@NotNull Set<? extends Element> includedElements, @NotNull AntDocCache antDocs)
     {
         this.includedElements = includedElements;
+        this.antDocs = antDocs;
     }
 
     /**
@@ -62,13 +64,36 @@ public class LinkSupport
         return text;
     }
 
+    /**
+      Return a link destination for a type name.
+      <p>
+      The type name might be a simple Class name, a qualified Class name, or the user-visible name of
+      an Ant type.
+    */
 
     public @Nullable URI getLinkTarget(@NotNull String typeName)
     {
+        // Test to see if the type has a page in this documentation set
         for (Element e : includedElements) {
             if (e instanceof TypeElement te) {
                 if (typeName.equals(te.getSimpleName().toString())) {
                     return getLinkTarget(te);
+                }
+                if (typeName.equals(te.getQualifiedName().toString())) {
+                    return getLinkTarget(te);
+                }
+            }
+        }
+
+        // Test to see whether a "user" type name has been provided
+        AntDoc d = antDocs.get(typeName);
+        if (d != null && d.isType()) {
+            String qn = d.getFullClassName();
+            for (Element e : includedElements) {
+                if (e instanceof TypeElement te) {
+                    if (qn.equals(te.getQualifiedName().toString())) {
+                        return getLinkTarget(te);
+                    }
                 }
             }
         }
@@ -79,7 +104,7 @@ public class LinkSupport
             try {
                 return new URI(link);
             } catch (URISyntaxException e) {
-                System.err.println("Unexpected exception: " + e);
+                System.out.println("Unexpected exception: " + e);
             }
         }
 
@@ -94,7 +119,7 @@ public class LinkSupport
             try {
                 return new URI(null, null, link, null);
             } catch (Exception e) {
-                System.err.println(e);
+                System.out.println(e);
             }
         }
 
@@ -105,7 +130,7 @@ public class LinkSupport
             try {
                 return new URI(link);
             } catch (URISyntaxException e) {
-                System.err.println("Unexpected exception: " + e);
+                System.out.println("Unexpected exception: " + e);
             }
         }
 

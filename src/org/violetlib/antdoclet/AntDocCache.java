@@ -54,4 +54,14 @@ public class AntDocCache
         cache.put(te, d);
         return d;
     }
+
+    public @Nullable AntDoc get(@NotNull String userName)
+    {
+        for (AntDoc d : cache.values()) {
+            if (userName.equals(d.getAntName())) {
+                return d;
+            }
+        }
+        return null;
+    }
 }

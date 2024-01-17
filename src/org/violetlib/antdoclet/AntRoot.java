@@ -308,7 +308,7 @@ public class AntRoot
     private static void debug(@NotNull String message)
     {
         if (false) {
-            System.err.println(message);
+            System.out.println(message);
         }
     }
 }

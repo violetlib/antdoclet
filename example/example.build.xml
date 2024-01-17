@@ -40,7 +40,7 @@
         <exclude name="*.vm"/>
       </fileset>
     </copy>
-    
+
     <!-- Generate the "dynamic" content from the templates -->
     <javadoc access="public"
       sourcepath="${source.dir}"
@@ -48,12 +48,9 @@
       packagenames="${package.names}"
       docletpathref="doclet.classpath"
       classpathref="classpath"
-      additionalparam="-J--add-exports=jdk.javadoc/jdk.javadoc.internal.doclets.formats.html=ALL-UNNAMED
--J--add-exports=jdk.javadoc/jdk.javadoc.internal.doclets.toolkit.util=ALL-UNNAMED
--J--add-exports=jdk.javadoc/jdk.javadoc.internal.doclets.toolkit=ALL-UNNAMED"
       >
 
-      <doclet name="com.neuroning.antdoclet.AntDoclet">
+      <doclet name="org.violetlib.antdoclet.AntDoclet">
         <param name="-doctitle" value="${doctitle}" />
         <param name="-templatesdir" value="${templates.dir}"/>
         <param name="-templates" value="html/main.vm" />

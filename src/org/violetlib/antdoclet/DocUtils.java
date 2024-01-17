@@ -14,16 +14,11 @@ import com.sun.source.doctree.UnknownBlockTagTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LineMap;
 import com.sun.source.util.DocSourcePositions;
-import com.sun.source.util.DocTreePath;
 import com.sun.source.util.DocTrees;
 import com.sun.source.util.TreePath;
 import jdk.javadoc.doclet.Doclet;
 import jdk.javadoc.doclet.DocletEnvironment;
 import jdk.javadoc.doclet.Reporter;
-import jdk.javadoc.internal.doclets.formats.html.HtmlConfiguration;
-import jdk.javadoc.internal.doclets.formats.html.HtmlDocletWriter;
-import jdk.javadoc.internal.doclets.toolkit.DocletException;
-import jdk.javadoc.internal.doclets.toolkit.util.DocPath;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,12 +27,8 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
-import java.io.PrintWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,9 +40,10 @@ public class DocUtils
 {
     public static @NotNull DocUtils create(@NotNull Doclet doclet,
                                            @NotNull DocletEnvironment env,
+                                           @NotNull ContentProcessing contentProcessing,
                                            @NotNull Reporter reporter)
     {
-        return new DocUtils(doclet, env, reporter);
+        return new DocUtils(doclet, env, contentProcessing, reporter);
     }
 
     private final @NotNull DocletEnvironment env;
@@ -59,75 +51,20 @@ public class DocUtils
     private final @NotNull Elements elementUtils;
     private final @NotNull Types typeUtils;
     private final @NotNull Reporter reporter;
-    private final @NotNull HtmlDocletWriter writer;
+    private final @NotNull ContentProcessing contentProcessing;
 
-    private DocUtils(@NotNull Doclet doclet, @NotNull DocletEnvironment env, @NotNull Reporter reporter)
+
+    private DocUtils(@NotNull Doclet doclet,
+                     @NotNull DocletEnvironment env,
+                     @NotNull ContentProcessing contentProcessing,
+                     @NotNull Reporter reporter)
     {
         this.env = env;
         this.docTrees = env.getDocTrees();
         this.elementUtils = env.getElementUtils();
         this.typeUtils = env.getTypeUtils();
         this.reporter = reporter;
-
-        MyHtmlConfiguration g = new MyHtmlConfiguration(doclet, Locale.ENGLISH, new NullReporter(), env);
-
-        try {
-            g.setOptions();
-        } catch (DocletException ignore) {
-        }
-
-        this.writer = new HtmlDocletWriter(g, DocPath.empty);
-    }
-
-    private static class NullReporter
-      implements Reporter
-    {
-        PrintWriter pw = new PrintWriter(Writer.nullWriter());
-
-        @Override
-        public void print(Diagnostic.Kind kind, String message)
-        {
-        }
-
-        @Override
-        public void print(Diagnostic.Kind kind, DocTreePath path, String message)
-        {
-        }
-
-        @Override
-        public void print(Diagnostic.Kind kind, Element element, String message)
-        {
-        }
-
-        @Override
-        public PrintWriter getStandardWriter()
-        {
-            return pw;
-        }
-
-        @Override
-        public PrintWriter getDiagnosticWriter()
-        {
-            return pw;
-        }
-    }
-
-    private static class MyHtmlConfiguration
-      extends HtmlConfiguration
-    {
-        MyHtmlConfiguration(@NotNull Doclet doclet,
-                            @NotNull Locale locale,
-                            @NotNull Reporter reporter,
-                            @NotNull DocletEnvironment env)
-        {
-            super(doclet, locale, reporter);
-            initConfiguration(env, null);
-        }
-
-        @Override
-        public void runDocLint(TreePath path)
-        {
-        }
+        this.contentProcessing = contentProcessing;
     }
 
     public @NotNull DocletEnvironment getEnvironment()
@@ -273,14 +210,21 @@ public class DocUtils
             return null;
         }
         List<? extends DocTree> body = tree.getFullBody();
-        return getText(e, body);
+        return getHtml(e, body);
     }
 
-    private @NotNull String getText(@NotNull Element e, @NotNull List<? extends DocTree> trees)
+    private @NotNull String getHtml(@NotNull Element e, @NotNull List<? extends DocTree> content)
     {
-        // return getProcessedText(trees);
+        return contentProcessing.toHTML(content);
 
-        return writer.commentTagsToContent(e, trees, false).toString();
+        //return writer.commentTagsToContent(e, trees, false).toString();
+    }
+
+    private @NotNull String getRawText(@NotNull Element e, @NotNull List<? extends DocTree> content)
+    {
+        return contentProcessing.toHTML(content);
+
+        //return writer.commentTagsToContent(e, trees, false).toString();
     }
 
     /**
@@ -299,7 +243,7 @@ public class DocUtils
             return null;
         }
         List<? extends DocTree> body = tree.getFirstSentence();
-        return getText(e, body);
+        return getHtml(e, body);
     }
 
     /**
@@ -313,11 +257,31 @@ public class DocUtils
                                               @NotNull String tagName,
                                               @NotNull String attributeName)
     {
+        String rawValue = tagAttributeRawValue(e, tagName, attributeName);
+        if (rawValue == null) {
+            return null;
+        }
+
+        return contentProcessing.toHTML(rawValue);
+    }
+
+    /**
+      Returns the unprocessed textual value of the designated attribute of the first (custom) javadoc tag with the
+      given name.
+
+      @return the text, or null if no tag with the specified name is present or not attribute with the
+      specified name is present.
+    */
+
+    public @Nullable String tagAttributeRawValue(@Nullable Element e,
+                                                 @NotNull String tagName,
+                                                 @NotNull String attributeName)
+    {
         if (tagName.startsWith("@")) {
             throw new AssertionError("Tag name should not start with @: " + tagName);
         }
 
-        String value = tagValue(e, tagName);
+        String value = tagRawValue(e, tagName);
         if (value == null) {
             return null;
         }
@@ -336,27 +300,27 @@ public class DocUtils
     }
 
     /**
-      Returns the textual value of the first (custom) javadoc tag with the given name.
+      Returns the unprocessed textual value of the first (custom) javadoc tag with the given name.
 
       @return the text, or null if no tag with the specified name is present.
     */
 
-    public @Nullable String tagValue(@Nullable Element e, @NotNull String tagName)
+    public @Nullable String tagRawValue(@Nullable Element e, @NotNull String tagName)
     {
         List<? extends DocTree> content = tagContent(e, tagName);
         if (content == null) {
-//            System.err.println("No content for tag " + tagName + " on " + e);
+//            System.out.println("No content for tag " + tagName + " on " + e);
 //            DocCommentTree tree = docTrees.getDocCommentTree(e);
 //            if (tree != null) {
 //                Util.show(tree);
 //            } else {
-//                System.err.println("No tree");
+//                System.out.println("No tree");
 //            }
 
             return null;
         }
 
-        //System.err.println("Content: " + content.size());
+        //System.out.println("Content: " + content.size());
 
         if (content.isEmpty()) {
             return "";
@@ -366,7 +330,41 @@ public class DocUtils
             return "";
         }
 
-        return getText(e, content);
+        return getRawText(e, content);
+    }
+
+    /**
+      Returns the HTML textual value of the first (custom) javadoc tag with the given name.
+
+      @return the text, or null if no tag with the specified name is present.
+    */
+
+    public @Nullable String tagValue(@Nullable Element e, @NotNull String tagName)
+    {
+        List<? extends DocTree> content = tagContent(e, tagName);
+        if (content == null) {
+//            System.out.println("No content for tag " + tagName + " on " + e);
+//            DocCommentTree tree = docTrees.getDocCommentTree(e);
+//            if (tree != null) {
+//                Util.show(tree);
+//            } else {
+//                System.out.println("No tree");
+//            }
+
+            return null;
+        }
+
+        //System.out.println("Content: " + content.size());
+
+        if (content.isEmpty()) {
+            return "";
+        }
+
+        if (e == null) {
+            return "";
+        }
+
+        return getHtml(e, content);
     }
 
     /**
@@ -412,58 +410,4 @@ public class DocUtils
         }
         return null;
     }
-
-//    public @NotNull String getProcessedText(List<? extends DocTree> content)
-//    {
-//        StringBuilder sb = new StringBuilder();
-//        for (DocTree tag : content) {
-//            DocTree.Kind kind = tag.getKind();
-//            if (kind == DocTree.Kind.TEXT) {
-//                TextTree tt = (TextTree) tag;
-//                String text = tt.getBody();
-//                System.err.println("Text: " + text);
-//                sb.append(text);
-//            } else if (kind == DocTree.Kind.CODE) {
-//                LiteralTree lt = (LiteralTree) tag;
-//                TextTree body = lt.getBody();
-//                String text = body.getBody();
-//                System.err.println("Text: " + text);
-//                sb.append("<code>");
-//                sb.append(text);
-//                sb.append("</code>");
-//            } else if (tag instanceof LiteralTree) {
-//                LiteralTree lt = (LiteralTree) tag;
-//                TextTree body = lt.getBody();
-//                String text = body.getBody();
-//                System.err.println("Text: " + text);
-//                sb.append(text);
-//            } else if (kind == DocTree.Kind.ENTITY) {
-//                EntityTree t = (EntityTree) tag;
-//                sb.append("&");
-//                sb.append(t.getName());
-//                sb.append(";");
-//            } else if (kind == DocTree.Kind.START_ELEMENT) {
-//                StartElementTree t = (StartElementTree) tag;
-//                sb.append("<");
-//                sb.append(t.getName());
-//                for (DocTree arg : t.getAttributes()) {
-//                    // TBD
-//                }
-//                if (t.isSelfClosing()) {
-//                    sb.append("/");
-//                }
-//                sb.append(">");
-//            } else if (kind == DocTree.Kind.END_ELEMENT) {
-//                EndElementTree t = (EndElementTree) tag;
-//                sb.append("</");
-//                sb.append(t.getName());
-//                sb.append(">");
-//            } else {
-//                System.err.println("Unknown doc tree kind: " + kind);
-//                // TBD
-//            }
-//        }
-//        String result = sb.toString();
-//        return result;
-//    }
 }
