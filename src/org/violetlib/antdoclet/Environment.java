@@ -188,7 +188,9 @@ public class Environment
       present.
     */
 
-    public @Nullable String tagAttributeRawValue(@Nullable Element e, @NotNull String tagName, @NotNull String attribute)
+    public @Nullable String tagAttributeRawValue(@Nullable Element e,
+                                                 @NotNull String tagName,
+                                                 @NotNull String attribute)
     {
         return docUtils.tagAttributeRawValue(e, tagName, attribute);
     }
@@ -203,31 +205,6 @@ public class Environment
     public @Nullable String tagAttributeValue(@Nullable Element e, @NotNull String tagName, @NotNull String attribute)
     {
         return docUtils.tagAttributeValue(e, tagName, attribute);
-    }
-
-    private @NotNull String toRawText(@NotNull DocTree content)
-    {
-        return contentProcessing.toRawText(content);
-    }
-
-    public @NotNull String toRawText(@NotNull List<? extends DocTree> content)
-    {
-        return contentProcessing.toRawText(content);
-    }
-
-    public @NotNull String toHTML(@NotNull String content)
-    {
-        return contentProcessing.toHTML(content);
-    }
-
-    public @NotNull String toHTML(@NotNull DocTree content)
-    {
-        return contentProcessing.toHTML(content);
-    }
-
-    public @NotNull String toHTML(@NotNull List<? extends DocTree> content)
-    {
-        return contentProcessing.toHTML(content);
     }
 
     public long getLineNumber(@NotNull Element e)

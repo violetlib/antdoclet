@@ -194,7 +194,7 @@ public class DocUtils
     }
 
     /**
-      Return the textual content of a doc comment associated with an element.
+      Return the HTML textual content of a doc comment associated with an element.
       @param e The element.
       @return the doc comment text, or null if none.
     */
@@ -215,20 +215,16 @@ public class DocUtils
 
     private @NotNull String getHtml(@NotNull Element e, @NotNull List<? extends DocTree> content)
     {
-        return contentProcessing.toHTML(content);
-
-        //return writer.commentTagsToContent(e, trees, false).toString();
+        return contentProcessing.toHTML(e, content);
     }
 
     private @NotNull String getRawText(@NotNull Element e, @NotNull List<? extends DocTree> content)
     {
-        return contentProcessing.toHTML(content);
-
-        //return writer.commentTagsToContent(e, trees, false).toString();
+        return contentProcessing.toRawText(e, content);
     }
 
     /**
-      Return the textual content of the first sentence of a doc comment associated with an element.
+      Return the HTML textual content of the first sentence of a doc comment associated with an element.
       @param e The element.
       @return the doc comment text, or null if none.
     */
@@ -247,7 +243,7 @@ public class DocUtils
     }
 
     /**
-      Returns the textual value of the designated attribute of the first (custom) javadoc tag with the given name.
+      Returns the HTML textual value of the designated attribute of the first (custom) javadoc tag with the given name.
 
       @return the text, or null if no tag with the specified name is present or not attribute with the
       specified name is present.
@@ -262,7 +258,7 @@ public class DocUtils
             return null;
         }
 
-        return contentProcessing.toHTML(rawValue);
+        return contentProcessing.toHTML(e, rawValue);
     }
 
     /**

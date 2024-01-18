@@ -3,7 +3,11 @@ import com.sun.source.doctree.DocTree;
 import com.sun.source.doctree.*;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.TypeElement;
 import java.util.List;
 
 /**
@@ -12,6 +16,35 @@ import java.util.List;
 
 public class Util
 {
+    public static @Nullable String getTopLevelSimpleName(@NotNull Element e)
+    {
+        TypeElement te = getTopLevelClass(e);
+        if (te != null) {
+            return te.getSimpleName().toString();
+        }
+        return null;
+    }
+
+    public static @Nullable String getTopLevelQualifiedName(@NotNull Element e)
+    {
+        TypeElement te = getTopLevelClass(e);
+        if (te != null) {
+            return te.getQualifiedName().toString();
+        }
+        return null;
+    }
+
+    public static @Nullable TypeElement getTopLevelClass(@NotNull Element e)
+    {
+        for (;;) {
+            Element parent = e.getEnclosingElement();
+            if (parent == null || parent.getKind() == ElementKind.PACKAGE || parent.getKind() == ElementKind.MODULE) {
+                return e instanceof TypeElement te ? te : null;
+            }
+            return getTopLevelClass(parent);
+        }
+    }
+
     public static void show(@NotNull DocTree tree)
     {
         showIndented("  ", tree);

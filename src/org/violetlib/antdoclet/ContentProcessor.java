@@ -4,6 +4,7 @@ import com.sun.source.doctree.*;
 import jdk.javadoc.doclet.Reporter;
 import org.jetbrains.annotations.NotNull;
 
+import javax.lang.model.element.Element;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
@@ -19,24 +20,28 @@ import java.util.Locale;
 
 public class ContentProcessor
 {
-    public static @NotNull ContentProcessor create(@NotNull Writer w,
+    public static @NotNull ContentProcessor create(@NotNull Element e,
+                                                   @NotNull Writer w,
                                                    boolean isRaw,
                                                    @NotNull LinkSupport linkSupport,
                                                    @NotNull Reporter reporter)
     {
-        return new ContentProcessor(w, isRaw, linkSupport, reporter);
+        return new ContentProcessor(e, w, isRaw, linkSupport, reporter);
     }
 
+    private final @NotNull Element e;
     private final @NotNull PrintWriter w;
     private final boolean isRaw;
     private final @NotNull LinkSupport linkSupport;
     private final @NotNull Reporter reporter;
 
-    public ContentProcessor(@NotNull Writer w,
+    public ContentProcessor(@NotNull Element e,
+                            @NotNull Writer w,
                             boolean isRaw,
                             @NotNull LinkSupport linkSupport,
                             @NotNull Reporter reporter)
     {
+        this.e = e;
         this.w = w instanceof PrintWriter pw ? pw : new PrintWriter(w);
         this.isRaw = isRaw;
         this.linkSupport = linkSupport;
@@ -297,6 +302,10 @@ public class ContentProcessor
 
     private void error(@NotNull String message)
     {
+        String context = Util.getTopLevelSimpleName(e);
+        if (context != null) {
+            message = context + ": " + message;
+        }
         reporter.print(Diagnostic.Kind.ERROR, message);
     }
 

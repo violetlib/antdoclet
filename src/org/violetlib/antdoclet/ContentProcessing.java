@@ -4,6 +4,7 @@ import jdk.javadoc.doclet.Reporter;
 import org.jetbrains.annotations.NotNull;
 import com.sun.source.doctree.*;
 
+import javax.lang.model.element.Element;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
@@ -28,42 +29,42 @@ public class ContentProcessing
         this.reporter = reporter;
     }
 
-    public @NotNull String toRawText(@NotNull DocTree content)
+    public @NotNull String toRawText(@NotNull Element e, @NotNull DocTree content)
     {
-        return toRawText(List.of(content));
+        return toRawText(e, List.of(content));
     }
 
-    public @NotNull String toRawText(@NotNull List<? extends DocTree> content)
+    public @NotNull String toRawText(@NotNull Element e, @NotNull List<? extends DocTree> content)
     {
         StringWriter sw = new StringWriter();
-        ContentProcessor w = create(sw, true);
+        ContentProcessor w = create(e, sw, true);
         w.write(content);
         w.flush();
         return sw.toString();
     }
 
-    public @NotNull String toHTML(@NotNull String content)
+    public @NotNull String toHTML(@NotNull Element e, @NotNull String content)
     {
-        return toHTML(new TextNode(content));
+        return toHTML(e, new TextNode(content));
     }
 
-    public @NotNull String toHTML(@NotNull DocTree content)
+    public @NotNull String toHTML(@NotNull Element e, @NotNull DocTree content)
     {
-        return toHTML(List.of(content));
+        return toHTML(e, List.of(content));
     }
 
-    public @NotNull String toHTML(@NotNull List<? extends DocTree> content)
+    public @NotNull String toHTML(@NotNull Element e, @NotNull List<? extends DocTree> content)
     {
         StringWriter sw = new StringWriter();
-        ContentProcessor w = create(sw, false);
+        ContentProcessor w = create(e, sw, false);
         w.write(content);
         w.flush();
         return sw.toString();
     }
 
-    private @NotNull ContentProcessor create(@NotNull Writer w, boolean isRaw)
+    private @NotNull ContentProcessor create(@NotNull Element e, @NotNull Writer w, boolean isRaw)
     {
-        return ContentProcessor.create(w, isRaw, linkSupport, reporter);
+        return ContentProcessor.create(e, w, isRaw, linkSupport, reporter);
     }
 
     public static class TextNode
