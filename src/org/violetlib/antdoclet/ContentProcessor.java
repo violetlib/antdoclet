@@ -168,20 +168,28 @@ public class ContentProcessor
 
     private @NotNull String processSnippetBody(@NotNull String body)
     {
-        body = body.replace("&", "&amp;");
-        body = body.replace("<", "&lt;");
+        String original = body;
+        body = original.replace("&", "&amp;").replace("<", "&lt;");
 
+        // This should not happen. Tabs should have been converted to spaces.
         if (body.contains("\t")) {
             error("Tabs in @snippet body are not supported");
         }
 
-        // remove excess indentation. The excess indentation is determined by the indentation at the end of the
+        // Remove excess indentation. The excess indentation is determined by the indentation at the end of the
         // body.
 
         int indentationCount = 0;
         while (body.endsWith(" ")) {
             body = body.substring(0, body.length() - 1);
             indentationCount++;
+        }
+
+        if (false) { // debug
+            if (indentationCount > 0) {
+                System.out.println("Indentation count: " + indentationCount);
+                System.out.println(original);
+            }
         }
 
         if (body.endsWith("\n")) {
