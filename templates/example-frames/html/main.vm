@@ -31,6 +31,10 @@ $velocity.eval("html/overview.vm", "overview.html")##
 #foreach ($category in $antroot.getCategories())
 $velocity.eval("html/taskindex.vm", "index.${category}.html")
 #end
+#if ($antroot.getUncategorizedElementCount() > 0)
+#set ($category = "none")
+$velocity.eval("html/taskindex.vm", "index.none.html")
+#end
 #set ($category = "all")
 $velocity.eval("html/taskindex.vm", "index.${category}.html")##
 

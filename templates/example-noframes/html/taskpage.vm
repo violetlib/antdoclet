@@ -11,6 +11,9 @@
 #parse ("html/menutop.vm")
 
 #if ($antroot.getCategories().isEmpty())
+#if ($category.equals("auxiliary"))
+#set ($category = "all")
+#end
 #parse ("html/taskindex.vm")
 #else
 #parse ("html/categoryindex.vm")
