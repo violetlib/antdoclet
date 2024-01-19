@@ -8,6 +8,7 @@
 
 package org.violetlib.antdoclet;
 
+import com.sun.source.doctree.ReferenceTree;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,18 +24,24 @@ import java.util.Set;
 
 public class LinkSupport
 {
-    public static @NotNull LinkSupport create(@NotNull Set<? extends Element> includedElements, @NotNull AntDocCache antDocs)
+    public static @NotNull LinkSupport create(@NotNull Set<? extends Element> includedElements,
+                                              @NotNull AntDocCache antDocs,
+                                              @NotNull Environment env)
     {
-        return new LinkSupport(includedElements, antDocs);
+        return new LinkSupport(includedElements, antDocs, env);
     }
 
     private final @NotNull Set<? extends Element> includedElements;
     private final @NotNull AntDocCache antDocs;
+    private final @NotNull Environment env;
 
-    private LinkSupport(@NotNull Set<? extends Element> includedElements, @NotNull AntDocCache antDocs)
+    private LinkSupport(@NotNull Set<? extends Element> includedElements,
+                        @NotNull AntDocCache antDocs,
+                        @NotNull Environment env)
     {
         this.includedElements = includedElements;
         this.antDocs = antDocs;
+        this.env = env;  // warning: not initialized yet
     }
 
     /**
@@ -52,7 +59,7 @@ public class LinkSupport
                 return getTextWithLink(typeName, link);
             }
         }
-        return getTextWithLink(typeName, getLinkTarget(typeName));
+        return getTextWithLink(typeName, getLinkTarget(te, typeName));
     }
 
     public @NotNull String getTextWithLink(@NotNull String text, @Nullable URI target)
@@ -64,6 +71,45 @@ public class LinkSupport
         return text;
     }
 
+    public static class InvalidLinkException
+      extends Exception
+    {
+        private final @NotNull String target;
+
+        public InvalidLinkException(@NotNull String target)
+        {
+            this.target = target;
+        }
+
+        public @NotNull String getTarget()
+        {
+            return target;
+        }
+    }
+
+    public @NotNull URI getReferenceLinkTarget(@NotNull Element context, @NotNull ReferenceTree r)
+      throws InvalidLinkException
+    {
+        TypeElement te = env.getTypeReference(context, r);
+        if (te != null) {
+            URI u = getLinkTarget(te);
+            if (u != null) {
+                return u;
+            }
+        }
+
+        URI u = getLinkTarget(context, r.getSignature());
+        if (u != null) {
+            return u;
+        }
+
+        if (te != null) {
+            throw new InvalidLinkException(te.getQualifiedName().toString());
+        } else {
+            throw new InvalidLinkException(r.getSignature());
+        }
+    }
+
     /**
       Return a link destination for a type name.
       <p>
@@ -71,7 +117,7 @@ public class LinkSupport
       an Ant type.
     */
 
-    public @Nullable URI getLinkTarget(@NotNull String typeName)
+    public @Nullable URI getLinkTarget(@Nullable Element context, @NotNull String typeName)
     {
         // Test to see if the type has a page in this documentation set
         for (Element e : includedElements) {

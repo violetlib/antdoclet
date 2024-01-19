@@ -53,7 +53,6 @@ public class DocUtils
     private final @NotNull Reporter reporter;
     private final @NotNull ContentProcessing contentProcessing;
 
-
     private DocUtils(@NotNull Doclet doclet,
                      @NotNull DocletEnvironment env,
                      @NotNull ContentProcessing contentProcessing,

@@ -1,7 +1,9 @@
 package org.violetlib.antdoclet;
-import com.sun.source.doctree.DocTree;
-import com.sun.source.doctree.*;
 
+import com.sun.source.doctree.DocCommentTree;
+import com.sun.source.doctree.DocTree;
+import com.sun.source.doctree.TextTree;
+import com.sun.source.doctree.UnknownBlockTagTree;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,7 +43,7 @@ public class Util
             if (parent == null || parent.getKind() == ElementKind.PACKAGE || parent.getKind() == ElementKind.MODULE) {
                 return e instanceof TypeElement te ? te : null;
             }
-            return getTopLevelClass(parent);
+            e = parent;
         }
     }
 

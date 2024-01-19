@@ -8,7 +8,11 @@
 
 package org.violetlib.antdoclet;
 
-import com.sun.source.doctree.DocTree;
+import com.sun.source.doctree.DocCommentTree;
+import com.sun.source.doctree.ReferenceTree;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.util.DocTreePath;
+import com.sun.source.util.TreePath;
 import jdk.javadoc.doclet.Doclet;
 import jdk.javadoc.doclet.DocletEnvironment;
 import jdk.javadoc.doclet.Reporter;
@@ -20,7 +24,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -54,7 +57,7 @@ public class Environment
         this.reporter = reporter;
 
         this.antDocCache = AntDocCache.create(this);
-        this.linkSupport = LinkSupport.create(env.getIncludedElements(), antDocCache);
+        this.linkSupport = LinkSupport.create(env.getIncludedElements(), antDocCache, this);
         this.contentProcessing = ContentProcessing.create(linkSupport, reporter);
         this.docUtils = DocUtils.create(doclet, env, contentProcessing, reporter);
         this.analysisCache = AnalysisCache.create(docUtils);
@@ -119,6 +122,26 @@ public class Environment
         }
 
         return null;
+    }
+
+    public @Nullable TypeElement getTypeReference(@NotNull Element context, @NotNull ReferenceTree r)
+    {
+        Element ref = getReferenceElement(context, r);
+        if (ref instanceof TypeElement te) {
+            return te;
+        }
+        return getTypeElement(r.getSignature());
+    }
+
+    private @Nullable Element getReferenceElement(@NotNull Element context, @NotNull ReferenceTree r)
+    {
+        DocCommentTree ct = env.getDocTrees().getDocCommentTree(context);
+        TreePath cp = env.getDocTrees().getPath(context);
+        CompilationUnitTree cut = cp.getCompilationUnit();
+        TreePath tp = new TreePath(cut);
+        DocTreePath cdp = new DocTreePath(tp, ct);
+        DocTreePath rp = DocTreePath.getPath(cdp, r);
+        return env.getDocTrees().getElement(rp);
     }
 
     public @NotNull String getTypeName(@NotNull TypeMirror t)

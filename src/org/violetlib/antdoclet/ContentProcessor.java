@@ -261,7 +261,8 @@ public class ContentProcessor
 
     private void writeLink(@NotNull LinkTree t, boolean isPlain)
     {
-        String signature = t.getReference().getSignature();
+        ReferenceTree r = t.getReference();
+        String signature = r.getSignature();
         List<? extends DocTree> label = t.getLabel();
         if (isRaw) {
             w.write(isPlain ? "{@linkplain " : "{@link ");
@@ -272,8 +273,8 @@ public class ContentProcessor
             }
             w.write("}");
         } else {
-            URI u = linkSupport.getLinkTarget(signature);
-            if (u != null) {
+            try {
+                URI u = linkSupport.getReferenceLinkTarget(e, r);
                 w.write("<a href=");
                 w.write(u.toString());
                 w.write(">");
@@ -289,8 +290,8 @@ public class ContentProcessor
                     w.write("</code>");
                 }
                 w.write("</a>");
-            } else {
-                error("Cannot create link to type: " + signature);
+            } catch (LinkSupport.InvalidLinkException ex) {
+                error("Cannot create link to type: " + ex.getTarget());
             }
         }
     }
