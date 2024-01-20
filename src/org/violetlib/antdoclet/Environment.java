@@ -23,8 +23,8 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -62,7 +62,7 @@ public class Environment
         this.contentProcessing = ContentProcessing.create(linkSupport, reporter);
         this.docUtils = DocUtils.create(doclet, env, contentProcessing, reporter);
         this.analysisCache = AnalysisCache.create(docUtils);
-        this.root = AntRoot.create(antDocCache, env.getIncludedElements());
+        this.root = ProjectBuilder.build(antDocCache, env.getIncludedElements());
     }
 
     public @NotNull AntRoot getRoot()
@@ -120,7 +120,7 @@ public class Environment
 
     public @Nullable TypeElement getIncludedTypeElement(@NotNull String name)
     {
-        List<AntDoc> ds = root.getAllDocumentedEntities();
+        Collection<AntDoc> ds = root.getAllDocumentedEntities();
 
         AntDoc named = antDocCache.get(name);
         if (named != null && ds.contains(named)) {

@@ -19,7 +19,7 @@ $velocity.eval("html/overview.vm", "overview.html")##
 ##
 - Using no-categories format
 #set ($category = "all")##
-#foreach ($taskDoc in $antroot.getAll())##
+#foreach ($taskDoc in $antroot.getAllPrimary())##
 - Processing $taskDoc.antName
 $velocity.eval("html/taskpage.vm", "${taskDoc.getFullClassName()}.html")##
 #end##

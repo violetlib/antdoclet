@@ -13,7 +13,7 @@ AntDoclet - Running project $title
 
 - Generating Task and Types documentation...
 ##
-#foreach ($taskDoc in $antroot.getAll())##
+#foreach ($taskDoc in $antroot.getAllPrimary())##
 - Processing $taskDoc.antName
 $velocity.eval("html/task.vm", "${taskDoc.getFullClassName()}.html")##
 #end

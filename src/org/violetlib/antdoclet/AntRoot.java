@@ -30,95 +30,102 @@ package org.violetlib.antdoclet;
 
 import org.jetbrains.annotations.NotNull;
 
-import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import java.util.*;
 
 /**
-  This object determines the tasks and types that are to be documented. It also organizes them by category.
+  This object provides access to the tasks and types being document.
+  The methods of this object are invoked from templates.
   <p>
-  During the analysis, AntDoc instances may be created. The existence of an AntDoc does not imply that the corresponding
-  task or type is documented.
-
-  @author Fernando Dobladez <dobladez@gmail.com>
+  @author Based on code by Fernando Dobladez <dobladez@gmail.com>
 */
 
 public class AntRoot
 {
-    public static @NotNull AntRoot create(@NotNull AntDocCache docCache, @NotNull Set<? extends Element> elements)
+    public static @NotNull AntRoot create(@NotNull AntDocCache docCache,
+                                          @NotNull Set<String> categories,
+                                          @NotNull Set<AntDoc> primaryTasks,
+                                          @NotNull Set<AntDoc> primaryTypes,
+                                          @NotNull Set<AntDoc> auxiliaryTypes,
+                                          @NotNull Set<AntDoc> uncategorizedTasks,
+                                          @NotNull Set<AntDoc> uncategorizedTypes
+    )
     {
-        if (false) {
-            debug("Included elements");
-            for (Element e : elements) {
-                debug(e.getSimpleName().toString());
-            }
-        }
-
-        return new AntRoot(docCache, elements);
+        return new AntRoot(docCache, categories, primaryTasks, primaryTypes, auxiliaryTypes, uncategorizedTasks,
+          uncategorizedTypes);
     }
 
     private final @NotNull AntDocCache docCache;
 
-    private final @NotNull SortedSet<AntDoc> all = new TreeSet<>();
-    private final @NotNull SortedSet<AntDoc> allTypes = new TreeSet<>();
-    private final @NotNull SortedSet<AntDoc> allTasks = new TreeSet<>();
-    private final @NotNull SortedSet<String> categories = new TreeSet<>();
-    private final @NotNull SortedSet<AntDoc> uncategorizedTasks = new TreeSet<>();
-    private final @NotNull SortedSet<AntDoc> uncategorizedTypes = new TreeSet<>();
-    private final @NotNull SortedSet<AntDoc> auxiliaryTypes = new TreeSet<>();
+    private final @NotNull Set<String> categories;
+    private final @NotNull Set<String> extendedCategories;
+    private final @NotNull Set<AntDoc> allPrimary;
+    private final @NotNull Set<AntDoc> primaryTasks;
+    private final @NotNull Set<AntDoc> primaryTypes;
+    private final @NotNull Set<AntDoc> uncategorizedTasks;
+    private final @NotNull Set<AntDoc> uncategorizedTypes;
+    private final @NotNull Set<AntDoc> allUncategorized;
+    private final @NotNull Set<AntDoc> auxiliaryTypes;
+    private final @NotNull Set<AntDoc> allEntities;
+    private final @NotNull Map<String,List<AntDoc>> primaryByCategory = new HashMap<>();
+    private final @NotNull Map<String,List<AntDoc>> primaryTasksByCategory = new HashMap<>();
+    private final @NotNull Map<String,List<AntDoc>> primaryTypesByCategory = new HashMap<>();
 
-    private AntRoot(@NotNull AntDocCache docCache, @NotNull Set<? extends Element> elements)
+    private AntRoot(@NotNull AntDocCache docCache,
+                    @NotNull Set<String> categories,
+                    @NotNull Set<AntDoc> primaryTasks,
+                    @NotNull Set<AntDoc> primaryTypes,
+                    @NotNull Set<AntDoc> auxiliaryTypes,
+                    @NotNull Set<AntDoc> uncategorizedTasks,
+                    @NotNull Set<AntDoc> uncategorizedTypes
+    )
     {
         this.docCache = docCache;
-
-        List<TypeElement> types = getIncludedElements(elements);
-        for (TypeElement e : types) {
-            process(e);
-        }
-        extendTypes(types);
+        this.categories = categories;
+        int uncategorizedEntityCount = uncategorizedTasks.size() + uncategorizedTypes.size();
+        this.extendedCategories = createExtendedCategories(categories, uncategorizedEntityCount > 0);
+        this.allPrimary = createAllPrimary(primaryTasks, primaryTypes);
+        this.primaryTasks = primaryTasks;
+        this.primaryTypes = primaryTypes;
+        this.auxiliaryTypes = auxiliaryTypes;
+        this.uncategorizedTasks = uncategorizedTasks;
+        this.uncategorizedTypes = uncategorizedTypes;
+        this.allUncategorized = createAllUncategorized(uncategorizedTasks, uncategorizedTypes);
+        this.allEntities = createAllEntities(allPrimary, auxiliaryTypes);
     }
 
-    private void extendTypes(@NotNull List<TypeElement> types)
+    private @NotNull Set<AntDoc> createAllPrimary(@NotNull Set<AntDoc> primaryTasks,
+                                                  @NotNull Set<AntDoc> primaryTypes)
     {
-        // Enlarge the set of documented elements to include types that are mentioned as unnamed nested elements of
-        // documented types.
-
-        for (TypeElement te : new ArrayList<>(types)) {
-            AntDoc d = docCache.get(te);
-            if (d != null) {
-                for (TypeElement nte : d.getAllReferencedTypes()) {
-                    if (!types.contains(nte)) {
-                        if (shouldIncludeAuxiliaryElement(nte)) {
-                            AntDoc nd = docCache.getOrCreate(nte);
-                            auxiliaryTypes.add(nd);
-                        }
-                    }
-                }
-            }
-        }
+        Set<AntDoc> result = new HashSet<>();
+        result.addAll(primaryTasks);
+        result.addAll(primaryTypes);
+        return Collections.unmodifiableSet(result);
     }
 
-    private void process(@NotNull TypeElement e)
+    private @NotNull Set<String> createExtendedCategories(@NotNull Set<String> categories, boolean includeOther)
     {
-        AntDoc d = docCache.getOrCreate(e);
-        if (d != null) {
-            all.add(d);
-            if (d.getAntCategory() != null) {
-                categories.add(d.getAntCategory());
-            } else {
-                if (d.isTask()) {
-                    uncategorizedTasks.add(d);
-                } else if (d.isType()){
-                    debug("Adding uncategorized type: " + d.getAntName());
-                    uncategorizedTypes.add(d);
-                }
-            }
-            if (d.isTask()) {
-                allTasks.add(d);
-            } else if (d.isType()){
-                allTypes.add(d);
-            }
+        Set<String> result = new HashSet<>(categories);
+        if (includeOther) {
+            result.add("none");
         }
+        return Collections.unmodifiableSet(result);
+    }
+
+    private @NotNull Set<AntDoc> createAllEntities(@NotNull Set<AntDoc> primary, @NotNull Set<AntDoc> auxiliary)
+    {
+        Set<AntDoc> result = new TreeSet<>();
+        result.addAll(primary);
+        result.addAll(auxiliary);
+        return Collections.unmodifiableSet(result);
+    }
+
+    private @NotNull Set<AntDoc> createAllUncategorized(@NotNull Set<AntDoc> tasks, @NotNull Set<AntDoc> types)
+    {
+        Set<AntDoc> result = new TreeSet<>();
+        result.addAll(tasks);
+        result.addAll(types);
+        return Collections.unmodifiableSet(result);
     }
 
     /**
@@ -129,89 +136,35 @@ public class AntRoot
     {
         AntDoc d = docCache.get(te);
         if (d != null) {
-            return allTasks.contains(d) || allTypes.contains(d) || auxiliaryTypes.contains(d);
+            return primaryTasks.contains(d) || primaryTypes.contains(d) || auxiliaryTypes.contains(d);
         }
         return false;
     }
 
     /**
-      Identify the elements to be included in the documentation.
+      Return the names of all explicitly defined categories.
     */
 
-    private @NotNull List<TypeElement> getIncludedElements(@NotNull Set<? extends Element> elements)
+    public @NotNull Set<String> getCategories()
     {
-        List<TypeElement> result = new ArrayList<>();
-        for (Element e : elements) {
-            if (e instanceof TypeElement type) {
-                if (shouldIncludeElement(type)) {
-                    result.add(type);
-                }
-            }
-        }
-        return result;
+        return categories;
     }
 
     /**
-      Make an initial determination whether an element should be included in the documentation.
+      Return the names of all explicitly defined categories and the implicitly defined category containing
+      entities with no defined category, if any.
     */
 
-    private boolean shouldIncludeElement(@NotNull TypeElement te)
+    public @NotNull Set<String> getCategoriesExtended()
     {
-        AntDoc d = docCache.getOrCreate(te);
-        if (d == null) {
-            debug("Rejected: no AntDoc created: " + te.getQualifiedName());
-            return false;
-        }
-        if (d.isIgnored()) {
-            debug("Rejected: isIgnored: " + te.getQualifiedName());
-            return false;
-        }
-        if (d.isTagged()) {
-            return true;
-        }
-        // TBD: might want options to enable this behavior
-        if (d.isSubtypeOf("org.apache.tools.ant.ProjectComponent")) {
-            return true;
-        }
-        debug("Rejected: !isTagged or !isSubtype(ProjectComponent): " + te.getQualifiedName());
-        return false;
+        return extendedCategories;
     }
 
     /**
-      Determine whether an element should be included in the documentation as an auxiliary element.
+      Return the prefix to apply when creating a title for a member of a category.
+      @param category The category.
+      @return the prefix.
     */
-
-    private boolean shouldIncludeAuxiliaryElement(@NotNull TypeElement te)
-    {
-        AntDoc d = docCache.getOrCreate(te);
-        if (d == null) {
-            debug("Rejected: no AntDoc created: " + te.getQualifiedName());
-            return false;
-        }
-        if (d.isTagged()) {
-            return true;
-        }
-        // TBD: might want options to enable this behavior
-        if (d.isSubtypeOf("org.apache.tools.ant.ProjectComponent")) {
-            return true;
-        }
-        debug("Rejected: !isTagged or !isSubtype(ProjectComponent): " + te.getQualifiedName());
-        return false;
-    }
-
-    public @NotNull List<String> getCategories()
-    {
-        return new ArrayList<>(categories);
-    }
-
-    public @NotNull List<String> getCategoriesExtended()
-    {
-        List<String> result = new ArrayList<>(categories);
-        if (getUncategorizedElementCount() > 0) {
-            result.add("none");
-        }
-        return result;
-    }
 
     public @NotNull String getAntCategoryPrefix(@NotNull String category)
     {
@@ -234,95 +187,102 @@ public class AntRoot
         return prefix.toUpperCase() + suffix;
     }
 
-    public @NotNull List<AntDoc> getAllDocumentedEntities()
+    public @NotNull Set<AntDoc> getAllDocumentedEntities()
     {
-        List<AntDoc> result = new ArrayList<>(all);
-        result.addAll(auxiliaryTypes);
-        return result;
+        return allEntities;
     }
 
-    public @NotNull List<AntDoc> getAll()
+    public @NotNull Set<AntDoc> getAllPrimary()
     {
-        return new ArrayList<>(all);
+        return allPrimary;
     }
 
-    public @NotNull List<AntDoc> getTypes()
+    public @NotNull Set<AntDoc> getPrimaryTypes()
     {
-        return new ArrayList<>(allTypes);
+        return primaryTypes;
     }
 
-    public @NotNull List<AntDoc> getTasks()
+    public @NotNull Set<AntDoc> getPrimaryTasks()
     {
-        return new ArrayList<>(allTasks);
+        return primaryTasks;
     }
 
-    public @NotNull List<AntDoc> getAllUncategorized()
+    public @NotNull Set<AntDoc> getAllUncategorized()
     {
-        List<AntDoc> result = new ArrayList<>();
-        result.addAll(uncategorizedTasks);
-        result.addAll(uncategorizedTypes);
-        return result;
+        return allUncategorized;
     }
 
-    public @NotNull List<AntDoc> getUncategorizedTypes()
+    public @NotNull Set<AntDoc> getUncategorizedTypes()
     {
-        return new ArrayList<>(uncategorizedTypes);
+        return uncategorizedTypes;
     }
 
-    public @NotNull List<AntDoc> getUncategorizedTasks()
+    public @NotNull Set<AntDoc> getUncategorizedTasks()
     {
-        return new ArrayList<>(uncategorizedTasks);
+        return uncategorizedTasks;
     }
 
-    public @NotNull List<AntDoc> getAuxiliaryTypes()
+    public @NotNull Set<AntDoc> getAuxiliaryTypes()
     {
-        return new ArrayList<>(auxiliaryTypes);
+        return auxiliaryTypes;
     }
 
     public int getUncategorizedElementCount()
     {
-        return uncategorizedTasks.size() + uncategorizedTypes.size();
+        return allUncategorized.size();
     }
 
-    public int getElementCount()
+    public int getPrimaryElementCount()
     {
-        return allTasks.size() + allTypes.size();
+        return allPrimary.size();
     }
 
-    public @NotNull List<AntDoc> getAllByCategory(@NotNull String category)
+    public @NotNull Collection<AntDoc> getAllByCategory(@NotNull String category)
     {
-        // give category "all" a special meaning:
         if ("all".equals(category)) {
-            return getAll();
+            return getAllPrimary();
         }
         if ("none".equals(category)) {
             return getAllUncategorized();
         }
-        return getByCategory(category, all);
+        List<AntDoc> ds = primaryByCategory.get(category);
+        if (ds == null) {
+            ds = getByCategory(category, allPrimary);
+            primaryByCategory.put(category, ds);
+        }
+        return ds;
     }
 
-    public @NotNull List<AntDoc> getTypesByCategory(@NotNull String category)
+    public @NotNull Collection<AntDoc> getTasksByCategory(@NotNull String category)
     {
-        // give category "all" a special meaning:
         if ("all".equals(category)) {
-            return getTypes();
-        }
-        if ("none".equals(category)) {
-            return getUncategorizedTypes();
-        }
-        return getByCategory(category, allTypes);
-    }
-
-    public @NotNull List<AntDoc> getTasksByCategory(@NotNull String category)
-    {
-        // give category "all" a special meaning:
-        if ("all".equals(category)) {
-            return getTasks();
+            return getPrimaryTasks();
         }
         if ("none".equals(category)) {
             return getUncategorizedTasks();
         }
-        return getByCategory(category, allTasks);
+        List<AntDoc> ds = primaryTasksByCategory.get(category);
+        if (ds == null) {
+            ds = getByCategory(category, primaryTasks);
+            primaryTasksByCategory.put(category, ds);
+        }
+        return ds;
+    }
+
+    public @NotNull Collection<AntDoc> getTypesByCategory(@NotNull String category)
+    {
+        if ("all".equals(category)) {
+            return getPrimaryTypes();
+        }
+        if ("none".equals(category)) {
+            return getUncategorizedTypes();
+        }
+        List<AntDoc> ds = primaryTypesByCategory.get(category);
+        if (ds == null) {
+            ds = getByCategory(category, primaryTypes);
+            primaryTypesByCategory.put(category, ds);
+        }
+        return ds;
     }
 
     private @NotNull List<AntDoc> getByCategory(@NotNull String category, @NotNull Set<AntDoc> antdocs)
@@ -334,12 +294,5 @@ public class AntRoot
             }
         }
         return filtered;
-    }
-
-    private static void debug(@NotNull String message)
-    {
-        if (false) {
-            System.out.println(message);
-        }
     }
 }

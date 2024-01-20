@@ -158,9 +158,10 @@ public class AntDoc
     */
 
     // For template use
-    public @Nullable String getDescription()
+    public @NotNull String getDescription()
     {
-        return env.getDescription(thisType);
+        String description = env.getDescription(thisType);
+        return description != null ? description : "";
     }
 
     /**
