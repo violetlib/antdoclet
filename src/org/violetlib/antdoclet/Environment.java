@@ -24,6 +24,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -57,7 +58,7 @@ public class Environment
         this.reporter = reporter;
 
         this.antDocCache = AntDocCache.create(this);
-        this.linkSupport = LinkSupport.create(env.getIncludedElements(), antDocCache, this);
+        this.linkSupport = LinkSupport.create(this);
         this.contentProcessing = ContentProcessing.create(linkSupport, reporter);
         this.docUtils = DocUtils.create(doclet, env, contentProcessing, reporter);
         this.analysisCache = AnalysisCache.create(docUtils);
@@ -95,6 +96,11 @@ public class Environment
         return antDocCache.get(te);
     }
 
+    public @Nullable AntDoc getAntDoc(@NotNull String userName)
+    {
+        return antDocCache.get(userName);
+    }
+
     public @Nullable TypeElement getTypeElement(@NotNull TypeMirror t)
     {
         return docUtils.getType(t);
@@ -103,6 +109,33 @@ public class Environment
     public @Nullable TypeInfo getTypeInfo(@NotNull TypeElement te)
     {
         return analysisCache.getInfo(te);
+    }
+
+    /**
+      Return the type element corresponding to the specified name, if the type is included in the documentation
+      (i.e, it will have a documentation page).
+      @param name A user name, simple type name, or fully qualified type name.
+      @return the type element, or null if the name cannot be mapped to a type that is included in the documentation.
+    */
+
+    public @Nullable TypeElement getIncludedTypeElement(@NotNull String name)
+    {
+        List<AntDoc> ds = root.getAllDocumentedEntities();
+
+        AntDoc named = antDocCache.get(name);
+        if (named != null && ds.contains(named)) {
+            return named.getTypeElement();
+        }
+        for (AntDoc d : ds) {
+            TypeElement te = d.getTypeElement();
+            if (te.getSimpleName().toString().equals(name)) {
+                return te;
+            }
+            if (te.getQualifiedName().toString().equals(name)) {
+                return te;
+            }
+        }
+        return null;
     }
 
     public @Nullable TypeElement getTypeElement(@NotNull CharSequence name)
@@ -155,18 +188,35 @@ public class Environment
         return te != null ? getTypeNameLinked(te) : getTypeName(t);
     }
 
+    public @Nullable String getTypeNameLinked(@Nullable Element context, @NotNull String typeName)
+    {
+        TypeElement te = getTypeElement(typeName);
+
+        if (te == null && context != null) {
+            String qt = getQualifiedTypeName(context, typeName);
+            if (qt != null) {
+                te = getTypeElement(qt);
+            }
+        }
+
+        return te != null ? getTypeNameLinked(te) : linkSupport.getTypeNameLink(typeName);
+    }
+
     public @NotNull String getTypeNameLinked(@NotNull TypeElement te)
     {
         String typeName = te.getSimpleName().toString();
-        if (isIncluded(te)) {
-            return linkSupport.getTypeNameLinked(typeName, te);
-        }
-        return typeName;
+        return linkSupport.getTypeNameLinked(typeName, te);
     }
 
     public @NotNull String getSimpleTypeName(@NotNull TypeMirror t)
     {
         return docUtils.getSimpleTypeName(t);
+    }
+
+    public @Nullable String getQualifiedTypeName(@NotNull Element context, @NotNull String tn)
+    {
+        // A placeholder for possible future support for resolving type names in a lexical context.
+        return null;
     }
 
     /**

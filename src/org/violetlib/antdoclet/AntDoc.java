@@ -461,8 +461,7 @@ public class AntDoc
     public @NotNull String getPropertyTypeLinked(@NotNull Property p)
     {
         String typeName = getPropertyType(p);
-        TypeElement te = env.getTypeElement(typeName);
-        return te != null ? env.getTypeNameLinked(te) : typeName;
+        return getTypeNameLinked(p.field, typeName);
     }
 
     private @Nullable TypeElement getPropertyTypeElement(@NotNull Property p)
@@ -567,16 +566,25 @@ public class AntDoc
     public @NotNull String getReferenceTypeLinked(@NotNull Reference r)
     {
         String typeName = getReferenceType(r);
-        TypeElement te = env.getTypeElement(typeName);
+        return getTypeNameLinked(r.field, typeName);
+    }
 
-        if (te == null) {
+    /**
+      Attempt to create a link to documentation for a type known only by a name (not an element or type mirror).
+    */
+
+    private @NotNull String getTypeNameLinked(@Nullable Element context, @NotNull String typeName)
+    {
+        String link = env.getTypeNameLinked(context, typeName);
+
+        if (link == null) {
             String message = String.format("%s: Type %s cannot be linked [type not found in sources]",
               getClassName(), typeName);
             env.getReporter().print(Diagnostic.Kind.WARNING, message);
             return typeName;
         }
 
-        return env.getTypeNameLinked(te);
+        return link;
     }
 
     private @Nullable TypeElement getReferenceTypeElement(@NotNull Reference r)
@@ -1211,6 +1219,11 @@ public class AntDoc
         String fullName1 = getAntCategory() +":" + getAntName();
         String fullName2 = otherDoc.getAntCategory() +":"+ otherDoc.getAntName();
         return fullName1.compareTo(fullName2);
+    }
+
+    public @NotNull TypeElement getTypeElement()
+    {
+        return thisType;
     }
 
     public boolean isSubtypeOf(@NotNull String typeName)

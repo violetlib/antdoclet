@@ -87,9 +87,11 @@ public class AntRoot
             AntDoc d = docCache.get(te);
             if (d != null) {
                 for (TypeElement nte : d.getAllReferencedTypes()) {
-                    if (!types.contains(nte) && shouldIncludeElement(nte)) {
-                        AntDoc nd = docCache.getOrCreate(nte);
-                        auxiliaryTypes.add(nd);
+                    if (!types.contains(nte)) {
+                        if (shouldIncludeAuxiliaryElement(nte)) {
+                            AntDoc nd = docCache.getOrCreate(nte);
+                            auxiliaryTypes.add(nd);
+                        }
                     }
                 }
             }
@@ -127,7 +129,7 @@ public class AntRoot
     {
         AntDoc d = docCache.get(te);
         if (d != null) {
-            return allTypes.contains(d) || auxiliaryTypes.contains(d);
+            return allTasks.contains(d) || allTypes.contains(d) || auxiliaryTypes.contains(d);
         }
         return false;
     }
@@ -175,6 +177,28 @@ public class AntRoot
         return false;
     }
 
+    /**
+      Determine whether an element should be included in the documentation as an auxiliary element.
+    */
+
+    private boolean shouldIncludeAuxiliaryElement(@NotNull TypeElement te)
+    {
+        AntDoc d = docCache.getOrCreate(te);
+        if (d == null) {
+            debug("Rejected: no AntDoc created: " + te.getQualifiedName());
+            return false;
+        }
+        if (d.isTagged()) {
+            return true;
+        }
+        // TBD: might want options to enable this behavior
+        if (d.isSubtypeOf("org.apache.tools.ant.ProjectComponent")) {
+            return true;
+        }
+        debug("Rejected: !isTagged or !isSubtype(ProjectComponent): " + te.getQualifiedName());
+        return false;
+    }
+
     public @NotNull List<String> getCategories()
     {
         return new ArrayList<>(categories);
@@ -208,6 +232,13 @@ public class AntRoot
         String prefix = s.substring(0, 1);
         String suffix = s.substring(1);
         return prefix.toUpperCase() + suffix;
+    }
+
+    public @NotNull List<AntDoc> getAllDocumentedEntities()
+    {
+        List<AntDoc> result = new ArrayList<>(all);
+        result.addAll(auxiliaryTypes);
+        return result;
     }
 
     public @NotNull List<AntDoc> getAll()

@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import java.util.List;
 
@@ -42,6 +43,20 @@ public class Util
             Element parent = e.getEnclosingElement();
             if (parent == null || parent.getKind() == ElementKind.PACKAGE || parent.getKind() == ElementKind.MODULE) {
                 return e instanceof TypeElement te ? te : null;
+            }
+            e = parent;
+        }
+    }
+
+    public static @Nullable ModuleElement getModule(@NotNull Element e)
+    {
+        for (;;) {
+            Element parent = e.getEnclosingElement();
+            if (parent == null) {
+                return null;
+            }
+            if (parent.getKind() == ElementKind.MODULE) {
+                return parent instanceof ModuleElement m ? m : null;
             }
             e = parent;
         }

@@ -164,7 +164,8 @@ public class ContentProcessor
                 int pos = (int) d.getPosition();
                 int end = (int) d.getEndPosition();
                 reporter.print(d.getKind(), source, start, pos, end, d.getMessage(Locale.getDefault()));
-
+            } else if (kind == DocTree.Kind.INHERIT_DOC) {
+                // ignore
             } else {
                 error("Unknown or unsupported doc tree element: " + kind);
             }
@@ -291,7 +292,10 @@ public class ContentProcessor
                 }
                 w.write("</a>");
             } catch (LinkSupport.InvalidLinkException ex) {
-                error("Cannot create link to type: " + ex.getTarget());
+                // Avoid warning about undocumented types
+                if (ex.getTypeElement() == null) {
+                    error("Cannot create link to type: " + ex.getTarget());
+                }
             }
         }
     }

@@ -13,10 +13,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Set;
 
 /**
   Create links to type documentation.
@@ -24,24 +24,29 @@ import java.util.Set;
 
 public class LinkSupport
 {
-    public static @NotNull LinkSupport create(@NotNull Set<? extends Element> includedElements,
-                                              @NotNull AntDocCache antDocs,
-                                              @NotNull Environment env)
+    public static @NotNull LinkSupport create(@NotNull Environment env)
     {
-        return new LinkSupport(includedElements, antDocs, env);
+        return new LinkSupport(env);
     }
 
-    private final @NotNull Set<? extends Element> includedElements;
-    private final @NotNull AntDocCache antDocs;
     private final @NotNull Environment env;
 
-    private LinkSupport(@NotNull Set<? extends Element> includedElements,
-                        @NotNull AntDocCache antDocs,
-                        @NotNull Environment env)
+    private LinkSupport(@NotNull Environment env)
     {
-        this.includedElements = includedElements;
-        this.antDocs = antDocs;
         this.env = env;  // warning: not initialized yet
+    }
+
+    /**
+      Return HTML with a link for a type name.
+      @param typeName The type name, which might be a simple Class name, a qualified Class name, or the user-visible
+      name of an Ant type.
+      @return a link to the documentation of the named type, or null if the type name could not be resolved.
+    */
+
+    public @Nullable String getTypeNameLink(@NotNull String typeName)
+    {
+        URI u = getLinkTarget(null, typeName);
+        return u != null ? getTextWithLink(typeName, u) : null;
     }
 
     /**
@@ -75,10 +80,23 @@ public class LinkSupport
       extends Exception
     {
         private final @NotNull String target;
+        private final @Nullable TypeElement te;
 
         public InvalidLinkException(@NotNull String target)
         {
             this.target = target;
+            this.te = null;
+        }
+
+        public InvalidLinkException(@NotNull TypeElement te)
+        {
+            this.target = te.getQualifiedName().toString();
+            this.te = te;
+        }
+
+        public @Nullable TypeElement getTypeElement()
+        {
+            return te;
         }
 
         public @NotNull String getTarget()
@@ -104,7 +122,7 @@ public class LinkSupport
         }
 
         if (te != null) {
-            throw new InvalidLinkException(te.getQualifiedName().toString());
+            throw new InvalidLinkException(te);
         } else {
             throw new InvalidLinkException(r.getSignature());
         }
@@ -120,66 +138,84 @@ public class LinkSupport
     public @Nullable URI getLinkTarget(@Nullable Element context, @NotNull String typeName)
     {
         // Test to see if the type has a page in this documentation set
-        for (Element e : includedElements) {
-            if (e instanceof TypeElement te) {
-                if (typeName.equals(te.getSimpleName().toString())) {
-                    return getLinkTarget(te);
-                }
-                if (typeName.equals(te.getQualifiedName().toString())) {
-                    return getLinkTarget(te);
+        TypeElement te = env.getIncludedTypeElement(typeName);
+        if (te != null) {
+            return createLinkTargetForIncludedType(te);
+        }
+
+        if (context != null) {
+            String qn = env.getQualifiedTypeName(context, typeName);
+            if (qn != null) {
+                TypeElement te1 = env.getIncludedTypeElement(qn);
+                if (te1 != null) {
+                    return createLinkTargetForIncludedType(te1);
                 }
             }
         }
 
-        // Test to see whether a "user" type name has been provided
-        AntDoc d = antDocs.get(typeName);
-        if (d != null && d.isType()) {
-            String qn = d.getFullClassName();
-            for (Element e : includedElements) {
-                if (e instanceof TypeElement te) {
-                    if (qn.equals(te.getQualifiedName().toString())) {
-                        return getLinkTarget(te);
-                    }
-                }
-            }
-        }
+        return getSpecialLinkTarget(typeName);
+    }
 
-        // Special case for testing
+    private @Nullable URI getSpecialLinkTarget(@NotNull String typeName)
+    {
+        // Special cases for testing and utility
         if (typeName.equals("File")) {
-            String link = "https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/File.html";
-            try {
-                return new URI(link);
-            } catch (URISyntaxException e) {
-                System.out.println("Unexpected exception: " + e);
+            return getJavaLink("java.io", typeName);
+        }
+        if (typeName.equals("String")) {
+            return getJavaLink("java.lang", typeName);
+        }
+        return null;
+    }
+
+    private @NotNull URI getJavaLink(@NotNull String packageName, @NotNull String type)
+    {
+        String ps = packageName.replace(".", "/");
+        String link = String.format("https://docs.oracle.com/en/java/javase/21/docs/api/java.base/%s/%s.html",
+          ps, type);
+        try {
+            return new URI(link);
+        } catch (URISyntaxException e) {
+            throw new AssertionError("Unexpected exception: " + e);
+        }
+    }
+
+    /**
+      Return a link destination for a type.
+    */
+
+    public @Nullable URI getLinkTarget(@NotNull TypeElement te)
+    {
+        // Test to see if the type has a page in this documentation set
+        if (env.getIncludedTypeElement(te.getQualifiedName().toString()) != null) {
+            return createLinkTargetForIncludedType(te);
+        }
+
+        // Special case for Java symbols
+        ModuleElement me = Util.getModule(te);
+        if (me != null) {
+            String mn = me.getQualifiedName().toString();
+            if (mn.startsWith("java.") || mn.startsWith("jdk.")) {
+                String qn = te.getQualifiedName().toString().replace(".", "/");
+                String link = "https://docs.oracle.com/en/java/javase/21/docs/api/" + mn + "/" + qn + ".html";
+                try {
+                    return new URI(link);
+                } catch (URISyntaxException e) {
+                    System.out.println("Unexpected exception: " + e);
+                }
             }
         }
 
         return null;
     }
 
-    public @Nullable URI getLinkTarget(@NotNull TypeElement te)
+    private @NotNull URI createLinkTargetForIncludedType(@NotNull TypeElement te)
     {
-        // Test to see if the type has a page in this documentation set
-        if (includedElements.contains(te)) {
-            String link = te.getQualifiedName() + ".html";
-            try {
-                return new URI(null, null, link, null);
-            } catch (Exception e) {
-                System.out.println(e);
-            }
+        String link = te.getQualifiedName() + ".html";
+        try {
+            return new URI(null, null, link, null);
+        } catch (Exception e) {
+            throw new AssertionError("Unexpected exception: " + e);
         }
-
-        // Special case for testing
-        String qn = te.getQualifiedName().toString();
-        if (qn.equals("java.io.File")) {
-            String link = "https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/File.html";
-            try {
-                return new URI(link);
-            } catch (URISyntaxException e) {
-                System.out.println("Unexpected exception: " + e);
-            }
-        }
-
-        return null;
     }
 }
