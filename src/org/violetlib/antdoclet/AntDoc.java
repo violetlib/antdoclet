@@ -285,7 +285,8 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getAttributeName(@NotNull Attribute a)
     {
-        return a.info.name;
+        String name = env.tagAttributeValue(a.info.definingMethod, "ant.prop", "name");
+        return name != null ? name : a.info.name;
     }
 
     /**
@@ -438,7 +439,8 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @NotNull String getPropertyName(@NotNull Property p)
     {
-        return p.propertyName;
+        String name = env.tagAttributeValue(p.field, "ant.prop", "name");
+        return name != null ? name : p.propertyName;
     }
 
     // For template use
