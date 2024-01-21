@@ -12,6 +12,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import java.util.List;
+import java.util.Set;
 
 /**
 
@@ -60,6 +61,64 @@ public class Util
             }
             e = parent;
         }
+    }
+
+    public static void show(@NotNull DocCommentInfo dc)
+    {
+        Element e = dc.getOwner();
+        Set<String> tagNames = dc.getTagNames();
+
+        System.out.println("-----------------------------------------------");
+        String ts = tagNames.isEmpty() ? " [no tags]" : "";
+        System.out.println("DocComment for element " + e.getSimpleName() + ts);
+        for (String tagName : tagNames) {
+            TagInfo tag = dc.getTag(tagName);
+            assert tag != null;
+            showIndented("  ", tag);
+        }
+        if (dc instanceof AugmentedDocCommentInfo adc) {
+            showIndented("  description: ", adc.getHtmlDescription());
+            showIndented("  short: ", adc.getHtmlShortDescription());
+            showIndented("  medium: ", adc.getHtmlMediumDescription());
+        }
+    }
+
+    private static void showIndented(@NotNull String indent, @NotNull TagInfo tagInfo)
+    {
+        String tagName = tagInfo.getName();
+        List<? extends DocTree> content = tagInfo.getContent();
+        Set<String> attributeNames = tagInfo.getAttributeNames();
+
+        String ts = attributeNames.isEmpty() ? " [no attributes]" : "";
+        if (content.isEmpty()) {
+            ts = ts + " [no content]";
+        }
+        showIndented(indent, "Tag " + tagName + ts);
+        for (String attributeName : attributeNames) {
+            TagAttributeInfo at = tagInfo.getAttribute(attributeName);
+            assert at != null;
+            showIndented(indent + "  ", at);
+        }
+        if (!content.isEmpty() && tagInfo instanceof AugmentedTagInfo aa) {
+            showIndented(indent + "  ", String.format("tag content [HTML]: \"%s\"", aa.getHtmlContent()));
+        }
+    }
+
+    private static void showIndented(@NotNull String indent, @NotNull TagAttributeInfo at)
+    {
+        String value = at.getValue();
+        showIndented(indent, String.format("%s = \"%s\"", at.getName(), value));
+        if (at instanceof AugmentedTagAttributeInfo aa) {
+            String htmlValue = aa.getHtmlValue();
+            if (!htmlValue.equals(value)) {
+                showIndented(indent, String.format("value [HTML] = \"%s\"", htmlValue));
+            }
+        }
+    }
+
+    private static void showIndented(@NotNull String indent, @NotNull String s)
+    {
+        System.out.println(indent + s);
     }
 
     public static void show(@NotNull DocTree tree)

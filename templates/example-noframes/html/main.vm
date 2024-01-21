@@ -30,6 +30,7 @@ $velocity.eval("html/taskindex.vm", "taskindex.html")##
 ### The categories format
 ##
 #foreach ($category in $antroot.getCategoriesExtended())##
+
 - Category $category
 #foreach ($taskDoc in $antroot.getAllByCategory($category))##
 - Processing $taskDoc.antName
@@ -47,6 +48,9 @@ $velocity.eval("html/categoryindex.vm", "category-${category}-index.html")##
 $velocity.eval("html/taskpage.vm", "${taskDoc.getFullClassName()}.html")##
 #end##
 
+#set ($category = "all")
+$velocity.eval("html/category.vm", "category-all.html")##
+$velocity.eval("html/categoryindex.vm", "category-all-index.html")##
 $velocity.eval("html/index.vm", "index.html")##
 
 - Done

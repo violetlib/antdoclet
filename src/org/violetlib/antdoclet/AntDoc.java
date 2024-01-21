@@ -43,7 +43,7 @@ import java.util.*;
 */
 @SuppressWarnings("removal, deprecation")
 public class AntDoc
-  implements Comparable
+  implements Comparable<AntDoc>
 {
     // for use only by AntDocCache
     public static @NotNull AntDoc create(@NotNull Environment env, @NotNull TypeElement te)
@@ -54,6 +54,7 @@ public class AntDoc
     private final @NotNull Environment env;
     private final @NotNull TypeElement thisType;
     private final @NotNull TypeInfo typeInfo;
+    private final @Nullable AugmentedDocCommentInfo docCommentInfo;
     private @Nullable List<AntDoc> nestedClasses;
     private @NotNull List<Property> properties;
     private @NotNull List<Reference> references;
@@ -71,6 +72,7 @@ public class AntDoc
             throw new IllegalStateException(message);
         }
         this.typeInfo = ti;
+        this.docCommentInfo = env.getDocCommentInfo(thisType);
         properties = discoverProperties();
         references = discoverReferences();
     }
@@ -364,7 +366,7 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @Nullable String getAttributeRequired(@NotNull Attribute a)
     {
-        return env.tagValue(a.info.definingMethod, "ant.required");
+        return env.tagContent(a.info.definingMethod, "ant.required");
     }
 
     /**
@@ -378,10 +380,10 @@ public class AntDoc
     @SuppressWarnings("ClassEscapesDefinedScope")
     public @Nullable String getAttributeNotRequired(@NotNull Attribute a)
     {
-        String s = env.tagValue(a.info.definingMethod, "ant.optional");
+        String s = env.tagContent(a.info.definingMethod, "ant.optional");
         if (s == null) {
             // backward compatibility
-            s = env.tagValue(a.info.definingMethod, "ant.not-required");
+            s = env.tagContent(a.info.definingMethod, "ant.not-required");
         }
         return s;
     }
@@ -1014,30 +1016,24 @@ public class AntDoc
     }
 
     /**
-      @return true if the class has an ant tag in it
+      @return true if the class has an ant tag in its documentation comment
     */
 
     public boolean isTagged()
     {
-        return isTagged(thisType);
-    }
-
-    private boolean isTagged(@NotNull Element e)
-    {
-        for (String en : antEntities) {
-            String s = env.tagRawValue(e, en);
-            if (s != null) {
-                return true;
+        if (docCommentInfo != null) {
+            for (String en : antEntities) {
+                if (docCommentInfo.getTag(en) != null) {
+                    return true;
+                }
             }
         }
-
         return false;
     }
 
     private boolean isProperty(@NotNull VariableElement e)
     {
-        String tag = env.tagRawValue(e, "ant.prop");
-        if (tag != null) {
+        if (env.hasTag(e, "ant.prop")) {
             Object value = e.getConstantValue();
             if (value instanceof String name) {
                 String dn = env.tagAttributeValue(e, "ant.prop", "name");
@@ -1053,8 +1049,7 @@ public class AntDoc
 
     private boolean isReference(@NotNull VariableElement e)
     {
-        String tag = env.tagRawValue(e, "ant.ref");
-        if (tag != null) {
+        if (env.hasTag(e, "ant.ref")) {
             Object value = e.getConstantValue();
             if (value instanceof String id) {
                 String dd = env.tagAttributeValue(e, "ant.ref", "name");
@@ -1214,12 +1209,11 @@ public class AntDoc
 //        return String.format("String [%s]", s);
 //    }
 
-    public int compareTo(Object o)
+    public int compareTo(@NotNull AntDoc otherDoc)
     {
-        AntDoc otherDoc = (AntDoc)o;
-        String fullName1 = getAntCategory() +":" + getAntName();
-        String fullName2 = otherDoc.getAntCategory() +":"+ otherDoc.getAntName();
-        return fullName1.compareTo(fullName2);
+        String fullName1 = getAntName();
+        String fullName2 = otherDoc.getAntName();
+        return fullName1.compareToIgnoreCase(fullName2);
     }
 
     public @NotNull TypeElement getTypeElement()

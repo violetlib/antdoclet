@@ -15,6 +15,12 @@
 <h3><a href="category-none.html">others</a></h3>
 #end
 #end
+#if ($category.equals("all"))
+<h3 class="selected"><a href="category-all.html">all</a></h3>
+#else
+<h3><a href="category-all.html">all</a></h3>
+#end
+
 </div>
 
 #if ($category && !$category.equals("auxiliary"))

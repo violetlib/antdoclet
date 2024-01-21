@@ -67,6 +67,7 @@ public class AntRoot
     private final @NotNull Set<AntDoc> allUncategorized;
     private final @NotNull Set<AntDoc> auxiliaryTypes;
     private final @NotNull Set<AntDoc> allEntities;
+    private final @NotNull Set<AntDoc> allTypes;
     private final @NotNull Map<String,List<AntDoc>> primaryByCategory = new HashMap<>();
     private final @NotNull Map<String,List<AntDoc>> primaryTasksByCategory = new HashMap<>();
     private final @NotNull Map<String,List<AntDoc>> primaryTypesByCategory = new HashMap<>();
@@ -91,7 +92,8 @@ public class AntRoot
         this.uncategorizedTasks = uncategorizedTasks;
         this.uncategorizedTypes = uncategorizedTypes;
         this.allUncategorized = createAllUncategorized(uncategorizedTasks, uncategorizedTypes);
-        this.allEntities = createAllEntities(allPrimary, auxiliaryTypes);
+        this.allEntities = combine(allPrimary, auxiliaryTypes);
+        this.allTypes = combine(primaryTypes, auxiliaryTypes);
     }
 
     private @NotNull Set<AntDoc> createAllPrimary(@NotNull Set<AntDoc> primaryTasks,
@@ -112,7 +114,7 @@ public class AntRoot
         return Collections.unmodifiableSet(result);
     }
 
-    private @NotNull Set<AntDoc> createAllEntities(@NotNull Set<AntDoc> primary, @NotNull Set<AntDoc> auxiliary)
+    private @NotNull Set<AntDoc> combine(@NotNull Set<AntDoc> primary, @NotNull Set<AntDoc> auxiliary)
     {
         Set<AntDoc> result = new TreeSet<>();
         result.addAll(primary);
@@ -192,6 +194,11 @@ public class AntRoot
         return allEntities;
     }
 
+    public @NotNull Set<AntDoc> getAllDocumentedTypes()
+    {
+        return allTypes;
+    }
+
     public @NotNull Set<AntDoc> getAllPrimary()
     {
         return allPrimary;
@@ -242,9 +249,11 @@ public class AntRoot
         if ("all".equals(category)) {
             return getAllPrimary();
         }
+
         if ("none".equals(category)) {
             return getAllUncategorized();
         }
+
         List<AntDoc> ds = primaryByCategory.get(category);
         if (ds == null) {
             ds = getByCategory(category, allPrimary);
@@ -258,9 +267,11 @@ public class AntRoot
         if ("all".equals(category)) {
             return getPrimaryTasks();
         }
+
         if ("none".equals(category)) {
             return getUncategorizedTasks();
         }
+
         List<AntDoc> ds = primaryTasksByCategory.get(category);
         if (ds == null) {
             ds = getByCategory(category, primaryTasks);
@@ -271,12 +282,23 @@ public class AntRoot
 
     public @NotNull Collection<AntDoc> getTypesByCategory(@NotNull String category)
     {
+        // Special case for "all" when using categories. The assumption when using categories is that the "all"
+        // menu is used as a substitute for a search box, so it should include auxiliary types. When not
+        // using categories, the "all" list of entities is the only list that is displayed, so it should not
+        // display types that have not been marked for display.
+
         if ("all".equals(category)) {
-            return getPrimaryTypes();
+            if (categories.isEmpty()) {
+                return getPrimaryTypes();
+            } else {
+                return getAllDocumentedTypes();
+            }
         }
+
         if ("none".equals(category)) {
             return getUncategorizedTypes();
         }
+
         List<AntDoc> ds = primaryTypesByCategory.get(category);
         if (ds == null) {
             ds = getByCategory(category, primaryTypes);

@@ -13,7 +13,6 @@ import com.sun.source.doctree.ReferenceTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.DocTreePath;
 import com.sun.source.util.TreePath;
-import jdk.javadoc.doclet.Doclet;
 import jdk.javadoc.doclet.DocletEnvironment;
 import jdk.javadoc.doclet.Reporter;
 import org.jetbrains.annotations.NotNull;
@@ -24,8 +23,8 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
 
@@ -33,11 +32,9 @@ import java.util.Set;
 
 public class Environment
 {
-    public static @NotNull Environment create(@NotNull DocletEnvironment env,
-                                              @NotNull Doclet doclet,
-                                              @NotNull Reporter reporter)
+    public static @NotNull Environment create(@NotNull DocletEnvironment env, @NotNull Reporter reporter)
     {
-        return new Environment(env, doclet, reporter);
+        return new Environment(env, reporter);
     }
 
     private final @NotNull DocletEnvironment env;
@@ -47,20 +44,16 @@ public class Environment
     private final @NotNull AnalysisCache analysisCache;
     private final @NotNull AntDocCache antDocCache;
     private final @NotNull AntRoot root;
-    private final @NotNull ContentProcessing contentProcessing;
+    private final @NotNull Map<Element,AugmentedDocCommentInfo> docCommentCache = new HashMap<>();
 
-    private Environment(@NotNull DocletEnvironment env,
-                        @NotNull Doclet doclet,
-                        @NotNull Reporter reporter
-    )
+    private Environment(@NotNull DocletEnvironment env, @NotNull Reporter reporter)
     {
         this.env = env;
         this.reporter = reporter;
 
         this.antDocCache = AntDocCache.create(this);
         this.linkSupport = LinkSupport.create(this);
-        this.contentProcessing = ContentProcessing.create(linkSupport, reporter);
-        this.docUtils = DocUtils.create(doclet, env, contentProcessing, reporter);
+        this.docUtils = DocUtils.create(env, reporter);
         this.analysisCache = AnalysisCache.create(docUtils);
         this.root = ProjectBuilder.build(antDocCache, env.getIncludedElements());
     }
@@ -84,11 +77,6 @@ public class Environment
     public boolean isIncluded(@NotNull TypeElement te)
     {
         return root.isIncluded(te);
-    }
-
-    public @NotNull Set<Element> getIncludedElements()
-    {
-        return new HashSet<>(env.getIncludedElements());
     }
 
     public @Nullable AntDoc getAntDoc(@NotNull TypeElement te)
@@ -220,52 +208,94 @@ public class Environment
     }
 
     /**
-      Return the textual content of a doc comment associated with an element.
+      Return information obtained from the documentation comment associated with an element.
       @param e The element.
-      @return the doc comment text, or null if none.
+      @return the documentation comment information, or null if {@code e} is null or has no documentation comment.
+    */
+
+    public @Nullable AugmentedDocCommentInfo getDocCommentInfo(@Nullable Element e)
+    {
+        if (e == null) {
+            return null;
+        }
+        AugmentedDocCommentInfo info = docCommentCache.get(e);
+        if (info != null) {
+            return info;
+        }
+        DocCommentTree dc = env.getDocTrees().getDocCommentTree(e);
+        if (dc == null) {
+            return null;
+        }
+        ElementContentProcessing ecp = ElementContentProcessing.create(e, linkSupport, reporter);
+        info = DocCommentAnalyzer.analyze(dc, ecp);
+        docCommentCache.put(e, info);
+        return info;
+    }
+
+    /**
+      Return the HTML description of an element.
+      @param e The element.
+      @return the description text, or null if none.
     */
 
     public @Nullable String getDescription(@Nullable Element e)
     {
-        return comment(docUtils.getComment(e));
-    }
-
-    public @Nullable String getShortDescription(@NotNull Element e)
-    {
-        return comment(docUtils.getShortComment(e));
-    }
-
-    private @Nullable String comment(@Nullable String s)
-    {
-        if (s != null) {
-            //System.out.println("Comment: " + s);
-        }
-        return s;
-    }
-
-    public @Nullable String tagRawValue(@Nullable Element e, @NotNull String tagName)
-    {
-        return docUtils.tagRawValue(e, tagName);
-    }
-
-    public @Nullable String tagValue(@Nullable Element e, @NotNull String tagName)
-    {
-        return docUtils.tagValue(e, tagName);
+        AugmentedDocCommentInfo info = getDocCommentInfo(e);
+        return info != null ? info.getHtmlDescription() : null;
     }
 
     /**
-      Returns the unprocessed textual value of the designated attribute of the first (custom) javadoc tag with the given
-      name.
-
-      @return the text, or null if no tag with the specified name is present or no attribute with the specified name is
-      present.
+      Return the HTML short description of an element.
+      @param e The element.
+      @return the description text, or null if none.
     */
 
-    public @Nullable String tagAttributeRawValue(@Nullable Element e,
-                                                 @NotNull String tagName,
-                                                 @NotNull String attribute)
+    public @Nullable String getShortDescription(@NotNull Element e)
     {
-        return docUtils.tagAttributeRawValue(e, tagName, attribute);
+        AugmentedDocCommentInfo info = getDocCommentInfo(e);
+        return info != null ? info.getHtmlShortDescription() : null;
+    }
+
+    /**
+      Return the HTML medium length description of an element.
+      @param e The element.
+      @return the description text, or null if none.
+    */
+
+    public @Nullable String getMediumDescription(@NotNull Element e)
+    {
+        AugmentedDocCommentInfo info = getDocCommentInfo(e);
+        return info != null ? info.getHtmlMediumDescription() : null;
+    }
+
+    /**
+      Indicate whether a tag with the specified name is present for the specified element.
+      @param e The element.
+      @param tagName The tag name.
+      @return true if and only if the specified tag is present.
+    */
+
+    public boolean hasTag(@NotNull Element e, @NotNull String tagName)
+    {
+        AugmentedDocCommentInfo info = getDocCommentInfo(e);
+        return info != null && info.hasTag(tagName);
+    }
+
+    /**
+      Return the content of the specified tag for the specified element.
+      @param e The element.
+      @param tagName The tag name.
+      @return the tag content, as HTML, or null if the tag is not present.
+    */
+
+    public @Nullable String tagContent(@Nullable Element e, @NotNull String tagName)
+    {
+        AugmentedDocCommentInfo info = getDocCommentInfo(e);
+        if (info == null) {
+            return null;
+        }
+        AugmentedTagInfo t = info.getTag(tagName);
+        return t != null ? t.getHtmlContent() : null;
     }
 
     /**
@@ -277,7 +307,15 @@ public class Environment
 
     public @Nullable String tagAttributeValue(@Nullable Element e, @NotNull String tagName, @NotNull String attribute)
     {
-        return docUtils.tagAttributeValue(e, tagName, attribute);
+        AugmentedDocCommentInfo info = getDocCommentInfo(e);
+        if (info == null) {
+            return null;
+        }
+        AugmentedTagInfo t = info.getTag(tagName);
+        if (t == null) {
+            return null;
+        }
+        return t.getAttributeValue(attribute);
     }
 
     public long getLineNumber(@NotNull Element e)

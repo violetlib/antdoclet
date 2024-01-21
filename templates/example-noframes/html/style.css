@@ -42,6 +42,11 @@ div.content div.description {
   margin-right: 10px;
 }
 
+.menu a {
+  text-decoration: none;
+  color: #335533;
+}
+
 .menu h2 {
   text-align: left;
   background-color: #CCEECC;
@@ -142,7 +147,7 @@ div.menu {
 div.content {
   flex-grow: 1;
   margin: 0;
-  padding: 0;
+  padding: 0 0 10px 0;
   width: auto;
   height: calc(100% - 40px);
 }
