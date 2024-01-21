@@ -216,22 +216,22 @@ public class Analysis
 
     private boolean isHiddenTaskSetMethod(@NotNull String name, @NotNull TypeMirror pt)
     {
-        return "setLocation".equals(name) && isClass(pt, "org.apache.tools.ant.Location")
-          || "setTaskType".equals(name) && isClass(pt, "java.lang.String")
-          || "setProject".equals(name) && isClass(pt, "org.apache.tools.ant.Project")
-          || "setOwningTarget".equals(name) && isClass(pt, "org.apache.tools.ant.Target")
-          || "setTaskName".equals(name) && isClass(pt, "java.lang.String")
-          || "setRuntimeConfigurableWrapper".equals(name) && isClass(pt, "org.apache.tools.ant.RuntimeConfigurable")
+        return "setLocation".equalsIgnoreCase(name) && isClass(pt, "org.apache.tools.ant.Location")
+          || "setTaskType".equalsIgnoreCase(name) && isClass(pt, "java.lang.String")
+          || "setProject".equalsIgnoreCase(name) && isClass(pt, "org.apache.tools.ant.Project")
+          || "setOwningTarget".equalsIgnoreCase(name) && isClass(pt, "org.apache.tools.ant.Target")
+          || "setTaskName".equalsIgnoreCase(name) && isClass(pt, "java.lang.String")
+          || "setRuntimeConfigurableWrapper".equalsIgnoreCase(name) && isClass(pt, "org.apache.tools.ant.RuntimeConfigurable")
           ;
     }
 
     private boolean isHiddenTypeSetMethod(@NotNull String name, @NotNull TypeMirror pt)
     {
         return
-             "setRefid".equals(name) && isClass(pt, "org.apache.tools.ant.types.Reference")
-          || "setDescription".equals(name) && isClass(pt, "java.lang.String")
-          || "setLocation".equals(name) && isClass(pt, "org.apache.tools.ant.Location")
-          || "setProject".equals(name) && isClass(pt, "org.apache.tools.ant.Project")
+             "setRefid".equalsIgnoreCase(name) && isClass(pt, "org.apache.tools.ant.types.Reference")
+          || "setDescription".equalsIgnoreCase(name) && isClass(pt, "java.lang.String")
+          || "setLocation".equalsIgnoreCase(name) && isClass(pt, "org.apache.tools.ant.Location")
+          || "setProject".equalsIgnoreCase(name) && isClass(pt, "org.apache.tools.ant.Project")
           ;
     }
 
