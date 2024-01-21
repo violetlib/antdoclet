@@ -17,6 +17,8 @@ import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
   Create links to type documentation.
@@ -30,10 +32,12 @@ public class LinkSupport
     }
 
     private final @NotNull Environment env;
+    private final @NotNull Map<String,String> antLinks;
 
     private LinkSupport(@NotNull Environment env)
     {
         this.env = env;  // warning: not initialized yet
+        this.antLinks = getAntDocumentationLinks();
     }
 
     /**
@@ -165,6 +169,10 @@ public class LinkSupport
         if (typeName.equals("String")) {
             return getJavaLink("java.lang", typeName);
         }
+        URI antLink = getAntLink(typeName);
+        if (antLink != null) {
+            return antLink;
+        }
         return null;
     }
 
@@ -178,6 +186,19 @@ public class LinkSupport
         } catch (URISyntaxException e) {
             throw new AssertionError("Unexpected exception: " + e);
         }
+    }
+
+    private @Nullable URI getAntLink(@NotNull String type)
+    {
+        String link = antLinks.get(type);
+        if (link != null) {
+            try {
+                return new URI(link);
+            } catch (URISyntaxException e) {
+                throw new AssertionError("Unexpected exception: " + e);
+            }
+        }
+        return null;
     }
 
     /**
@@ -217,5 +238,32 @@ public class LinkSupport
         } catch (Exception e) {
             throw new AssertionError("Unexpected exception: " + e);
         }
+    }
+
+    private @NotNull Map<String,String> getAntDocumentationLinks()
+    {
+        Map<String,String> m = new HashMap<>();
+        m.put("Reference", "https://ant.apache.org/manual/using.html#references");
+        m.put("FileSet", "https://ant.apache.org/manual/Types/classfileset.html");
+        m.put("PatternSet", "https://ant.apache.org/manual/Types/patternset.html");
+        m.put("DirSet", "https://ant.apache.org/manual/Types/dirset.html");
+        m.put("FileList", "https://ant.apache.org/manual/Types/filelist.html");
+        m.put("ClassFileSet", "https://ant.apache.org/manual/Types/classfileset.html");
+        m.put("FilterSet", "https://ant.apache.org/manual/Types/filterset.html");
+        m.put("MultiRootFileSet", "https://ant.apache.org/manual/Types/multirootfileset.html");
+        m.put("PropertySet", "https://ant.apache.org/manual/Types/propertyset.html");
+        m.put("Regexp", "https://ant.apache.org/manual/Types/regexp.html");
+        m.put("Resource", "https://ant.apache.org/manual/Types/resources.html#basic");
+        m.put("FileResource", "https://ant.apache.org/manual/Types/resources.html#file");
+        m.put("JavaResource", "https://ant.apache.org/manual/Types/resources.html#javaresource");
+        m.put("JavaConstantResource", "https://ant.apache.org/manual/Types/resources.html#javaconstant");
+        m.put("PropertyResource", "https://ant.apache.org/manual/Types/resources.html#propertyresource");
+        m.put("StringResource", "https://ant.apache.org/manual/Types/resources.html#string");
+        m.put("URLResource", "https://ant.apache.org/manual/Types/resources.html#url");
+        m.put("ResourceCollection", "https://ant.apache.org/manual/Types/resources.html#collection");
+        m.put("Path", "https://ant.apache.org/manual/using.html#path");
+        m.put("Commandline.Argument", "https://ant.apache.org/manual/using.html#arg");
+        m.put("Argument", "https://ant.apache.org/manual/using.html#arg");
+        return m;
     }
 }
