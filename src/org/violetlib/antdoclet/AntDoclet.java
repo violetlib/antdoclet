@@ -84,7 +84,7 @@ public class AntDoclet
 
         assert reporter != null;
 
-        Environment env = Environment.create(docletEnvironment, this, reporter);
+        Environment env = Environment.create(docletEnvironment, reporter);
 
         // Set global parameters to the templates
         velocity.setAttribute("velocity", velocity);
