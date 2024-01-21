@@ -294,7 +294,12 @@ public class ContentProcessor
             } catch (LinkSupport.InvalidLinkException ex) {
                 // Avoid warning about undocumented types
                 if (ex.getTypeElement() == null) {
-                    error("Cannot create link to type: " + ex.getTarget());
+                    String target = ex.getTarget();
+                    if (target.contains("#")) {
+                        error("Links to class members are not supported: " + target);
+                    } else {
+                        error("Cannot create link to type: " + target);
+                    }
                 }
             }
         }
