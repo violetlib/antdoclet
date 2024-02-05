@@ -691,7 +691,7 @@ public class AntDoc
         es.sort(new NestedElementComparator());
         List<NestedElement> result = new ArrayList<>();
         for (NestedElementInfo e : es) {
-            if (env.isIncluded(e.types.getFirst())) {
+            if (env.isIncludedOrForeign(e.types.getFirst())) {
                 result.add(toNestedElement(e));
             }
         }

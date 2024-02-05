@@ -74,9 +74,20 @@ public class Environment
         return te != null && isIncluded(te);
     }
 
+    public boolean isIncludedOrForeign(@NotNull TypeMirror t)
+    {
+        TypeElement te = docUtils.getType(t);
+        return te != null && isIncludedOrForeign(te);
+    }
+
     public boolean isIncluded(@NotNull TypeElement te)
     {
         return root.isIncluded(te);
+    }
+
+    public boolean isIncludedOrForeign(@NotNull TypeElement te)
+    {
+        return root.isIncludedOrForeign(te);
     }
 
     public @Nullable AntDoc getAntDoc(@NotNull TypeElement te)

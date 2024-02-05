@@ -144,6 +144,19 @@ public class AntRoot
     }
 
     /**
+      Indicate whether the specified element has a documentation page or is foreign
+    */
+
+    public boolean isIncludedOrForeign(@NotNull TypeElement te)
+    {
+        AntDoc d = docCache.get(te);
+        if (d != null) {
+            return primaryTasks.contains(d) || primaryTypes.contains(d) || auxiliaryTypes.contains(d);
+        }
+        return true;
+    }
+
+    /**
       Return the names of all explicitly defined categories.
     */
 

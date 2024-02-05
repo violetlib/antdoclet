@@ -150,12 +150,9 @@ $taskDoc.getDescription()
   ## Report unnamed nested element types
 
   #foreach ($type in $taskDoc.getNestedElementTypes())
-
-    #if ($taskDoc.getNestedElementTypeDoc($type))
-      <h4>${taskDoc.getNestedElementTypeLinked($type)} ...</h4>
-      #if ($taskDoc.getNestedElementTypeDescription($type))
-        $taskDoc.getNestedElementTypeDescription($type)
-      #end
+    <h4>${taskDoc.getNestedElementTypeLinked($type)} ...</h4>
+    #if ($taskDoc.getNestedElementTypeDescription($type))
+      $taskDoc.getNestedElementTypeDescription($type)
     #end
   #end
 

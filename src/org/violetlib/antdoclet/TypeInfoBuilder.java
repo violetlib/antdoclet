@@ -339,7 +339,7 @@ public class TypeInfoBuilder
 
     private void debug(@NotNull String message)
     {
-        if (false) {
+        if (true) {
             reporter.print(Diagnostic.Kind.NOTE, className + ": " + message);
         }
     }
